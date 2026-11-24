@@ -1,0 +1,36 @@
+{
+  "click-req-3896": {
+    "files": [
+      "src/click/core.py",
+      "src/click/testing.py",
+      "tests/test_testing.py",
+      "tests/test_options.py",
+      "docs/testing.md",
+      "tests/test_termui.py",
+      "tests/test_defaults.py",
+      "tests/test_basic.py",
+      "tests/test_commands.py",
+      "tests/test_custom_classes.py"
+    ],
+    "shared_with": [
+      "click-req-3878"
+    ]
+  },
+  "click-req-3878": {
+    "files": [
+      "src/click/testing.py",
+      "CHANGES.md",
+      "docs/testing.md",
+      "tests/test_termui.py",
+      "src/click/_termui_impl.py",
+      "tests/test_testing.py",
+      "tests/test_stream_lifecycle.py",
+      "tests/test_options.py",
+      "src/click/termui.py",
+      "tests/conftest.py"
+    ],
+    "shared_with": [
+      "click-req-3896"
+    ]
+  }
+}
