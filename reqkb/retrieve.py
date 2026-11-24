@@ -203,6 +203,53 @@ LEVELS: dict[str, dict] = {
 }
 
 
+def _file_stem(path: str) -> str:
+    """Filename without directory or extension ("" for extensionless)."""
+    name = path.rsplit("/", 1)[-1]
+    return name.rsplit(".", 1)[0] if "." in name else name
+
+
+def _stem_matches_seed(stem: str, seeds: set[str]) -> bool:
+    """Does the requirement name this file -- exactly, or by prefix?
+
+    Exact: `skill_generator.py` for the seed `skill_generator`.
+    Prefix: `installer.py` for the seed `install` -- the requirement
+    names the `install` command, the file is the thing that installs.
+    The 6-character minimum keeps generic seeds (`test`, `docs`,
+    `SKILL`, `cli`) from matching everything.
+    """
+    return any(len(s) >= 6 and stem.startswith(s) for s in seeds)
+
+
+def _defined_seeds(info: FileInfo, seeds: set[str]) -> set[str]:
+    """Seed symbols this file defines, specific ones only.
+
+    Short seeds (`cli`, `test`) match half the repo -- every CLI module
+    defines a `cli` object -- so a defined symbol only counts when it
+    is at least 6 characters (`ReplSkin`, `invoke`, `preview`).
+    """
+    return {
+        s
+        for s in ({q.split(".")[-1] for q in info.symbols} & seeds)
+        if len(s) >= 6
+    }
+
+
+def _is_seed_named(path: str, info: FileInfo, seeds: set[str]) -> bool:
+    """Does this file carry a seed in its name or its definitions?
+
+    A file that *defines* the thing the requirement names (or is named
+    after it) is the thing itself, not a bystander that merely mentions
+    it -- so it gets a floor in the ranking below, and can't lose to a
+    test file that only calls the seed. The 6-character minimum keeps
+    generic seeds (`test`, `SKILL`, `docs`, `cli`) from promoting
+    everything.
+    """
+    if _stem_matches_seed(_file_stem(path), seeds):
+        return True
+    return bool(_defined_seeds(info, seeds))
+
+
 def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
                   budget_tokens: int | None = None,
                   level: str = "full") -> Context:
@@ -227,15 +274,23 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     rank = pagerank(nodes, edges)
     fscores = file_scores(files, rank)
 
-    # Seed files: files that define a seed symbol, plus top TF-IDF hits.
-    # vibe keeps only the defining files: a one-line fix shouldn't drag
-    # in five "probably relevant" files.
+    # Seed files: files that define a seed symbol, plus top TF-IDF hits,
+    # plus files whose name is a seed -- exactly (`repl_skin.py` for
+    # `ReplSkin`, `docs/PREVIEW_PROTOCOL.md` for `PREVIEW_PROTOCOL`) or
+    # by prefix (`installer.py` for the `install` command). Short seeds
+    # like `test`, `docs`, `SKILL` match dozens of unrelated files and
+    # would flood the list, so the name rule needs a 6-character seed.
+    # vibe keeps only seed files (defining + name-matched), no TF-IDF
+    # top-5: a one-line fix shouldn't drag in "probably relevant" files.
     seed_files = {
-        path for path, info in files.items()
-        if {q.split(".")[-1] for q in info.symbols} & set(ctx.seeds)
+        path for path, info in files.items() if _defined_seeds(info, set(ctx.seeds))
     }
+    seed_files.update(
+        path for path in files
+        if _stem_matches_seed(_file_stem(path), set(ctx.seeds))
+    )
     if level != "vibe":
-        top_tfidf = sorted(scores, key=scores.get, reverse=True)[:5]
+        top_tfidf = sorted(scores, key=lambda p: (-scores[p], p))[:5]
         seed_files.update(p for p in top_tfidf if scores[p] > 0)
     for path in seed_files:
         ctx.hops[path] = 0
@@ -279,7 +334,83 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     # a whole testing.py alone would eat the budget. Per file we keep
     # at most 8 symbols / 2500 tokens, seed symbols first, then the
     # highest-PageRank neighbours; at most 10 files in total.
-    candidates = sorted(ctx.hops, key=lambda p: scores.get(p, 0.0), reverse=True)
+    # Seed-named files get a bonus in the walk, not an absolute tier.
+    # Without a floor a file that *defines* the seed loses to test
+    # files that merely call it -- in one real run on CLI-Anything,
+    # `repl_skin.py` (defines `ReplSkin`) ranked 388th by score and
+    # never made the cut, while its callers did. But strict tiers
+    # misorder the other way: a tier-0 file scoring 5
+    # (`eth2/.../install.py`) sat above `cli.py` scoring 63, the hub's
+    # own entry point. A +20 / +10 bonus keeps the floor's protection
+    # (a tier-0 file scoring 10 still beats a tier-1 file scoring 14,
+    # which is what saves `repl_skin.py`) while letting a large score
+    # gap dominate across tiers.
+    # One file per stem in the floor group: a monorepo holds dozens of
+    # copies of the same named file (63 repl_skin.py, 7 HARNESS.md);
+    # keep the shallowest (the plugin's own, not an app's copy), then
+    # the highest score. The copies are dropped from the walk, not
+    # demoted: a demoted copy would re-enter right behind on score
+    # (safari's HARNESS.md scores 47) and eat the budget again.
+    seed_set = set(ctx.seeds)
+    floor_set = {
+        p for p in ctx.hops if _is_seed_named(p, files[p], seed_set)
+    }
+    keep_floor: dict[str, str] = {}
+    for p in floor_set:
+        stem = _file_stem(p)
+        cur = keep_floor.get(stem)
+        if cur is None or (p.count("/"), -scores.get(p, 0.0)) < (
+            cur.count("/"),
+            -scores.get(cur, 0.0),
+        ):
+            keep_floor[stem] = p
+    keep_floor_set = set(keep_floor.values())
+
+    def _floor_tier(path: str) -> int:
+        """How strongly does the requirement name this file?
+
+        0 -- the filename *is* a seed (`skill_generator.py`).
+        1 -- the file *defines* a seed symbol (`ui.py` defines
+             `ReplSkin`).
+        2 -- the filename merely *starts with* a seed
+             (`installer.py` for `install`, `matrix_skill.py` for
+             `matrix`). A prefix is a weak signal: `search_members.py`
+             also starts with `search`, and it is just an app command.
+        """
+        stem = _file_stem(path)
+        if stem in seed_set and len(stem) >= 6:
+            return 0
+        if _defined_seeds(files[path], seed_set):
+            return 1
+        if _stem_matches_seed(stem, seed_set):
+            return 2
+        return 3
+
+    candidates = [
+        p for p in ctx.hops if p not in floor_set or p in keep_floor_set
+    ]
+    # Every sort below ends in a name tiebreak (and ranks are rounded
+    # to 9 decimals first): the graph is built from sets, so PageRank
+    # ties and even last-bit float noise would otherwise make the same
+    # input produce a different page on the next run -- the demo
+    # rehearsal caught it (same file list, different symbols, 7445 vs
+    # 7951 tokens). A build must be reproducible byte for byte.
+    def _walk_bonus(path: str) -> float:
+        """Ordering bonus by tier. The numbers are set by two real
+        cases, not by feel: tier 0 needs +55 because `repl_skin.py`
+        (raw score 10.7) must beat the generic `README_CN.md` (62.0)
+        that merely mentions the words -- without it the two 1500-token
+        docs eat the budget before the mechanism file is reached.
+        Tier 2 gets only +5, so a prefix match like `search_members.py`
+        (raw 2.2) cannot ride into the top 10 on the name alone.
+        """
+        if path not in keep_floor_set:
+            return 0.0
+        return {0: 55.0, 1: 10.0, 2: 5.0}.get(_floor_tier(path), 0.0)
+
+    candidates.sort(
+        key=lambda p: (-(scores.get(p, 0.0) + _walk_bonus(p)), p),
+    )
     # Translated copies of the same document (README.md / README_CN.md /
     # README_DE.md / ...) say the same thing in different languages and
     # each scores as high as the original; without dedup they crowd the
@@ -323,7 +454,7 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
                 # highest-PageRank symbols instead of nothing.
                 ranked_all = sorted(
                     info.symbols,
-                    key=lambda q: -rank.get((path, q), 0.0),
+                    key=lambda q: (-round(rank.get((path, q), 0.0), 9), q),
                 )
                 wanted = set(ranked_all[:3])
             else:
@@ -332,7 +463,8 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             wanted,
             key=lambda q: (
                 0 if q.split(".")[-1] in set(ctx.seeds) else 1,
-                -rank.get((path, q), 0.0),
+                -round(rank.get((path, q), 0.0), 9),
+                q,
             ),
         )[:per_file_symbols]
         symbols = []
@@ -388,5 +520,8 @@ def _compute_impact(ctx: Context, nodes: set[Node],
         for caller in callers.get(callee, ()):
             per_file.setdefault(callee[0], {})[caller] = rank.get(caller, 0.0)
     for path, caller_ranks in per_file.items():
-        top = sorted(caller_ranks, key=caller_ranks.get, reverse=True)[:3]
+        top = sorted(
+            caller_ranks,
+            key=lambda c: (-round(caller_ranks[c], 9), c[0], c[1]),
+        )[:3]
         ctx.impact[path] = [f"{c[0]}:{c[1]}" for c in top]

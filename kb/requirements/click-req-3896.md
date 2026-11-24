@@ -37,18 +37,18 @@
 
 | 文件 | 关联 | 命中符号 |
 | --- | --- | --- |
-| [src/click/core.py](https://github.com/pallets/click/blob/08b803c/src/click/core.py) | 种子 | `Context.invoke` (L877), `Group.invoke` (L2043), `Command.invoke` (L1423), `Context.fail` (L834) |
+| [src/click/core.py](https://github.com/pallets/click/blob/08b803c/src/click/core.py) | 种子 | `Context.invoke` (L877), `Command.invoke` (L1423), `Group.invoke` (L2043), `Context.fail` (L834) |
 | [src/click/testing.py](https://github.com/pallets/click/blob/08b803c/src/click/testing.py) | 种子 | `CliRunner.invoke` (L625), `BytesIOCopy.write` (L157), `BytesIOCopy.flush` (L153), `_FDCapture.start` (L124) |
-| [tests/test_testing.py](https://github.com/pallets/click/blob/08b803c/tests/test_testing.py) | 种子 | `test_args` (L439), `test_catch_exceptions` (L211), `test_env` (L384), `test_capture_fd_windows_error` (L759), `test_pdb_init_restored_after_invoke` (L732) |
-| [tests/test_options.py](https://github.com/pallets/click/blob/08b803c/tests/test_options.py) | 种子 | `test_dual_options_custom_type_sentinel_flag_value.main` (L2447), `test_default_dual_option_callback.main` (L2015), `test_custom_type_flag_value_dual_options` (L2687), `test_default_dual_option_callback` (L1997), `test_show_default_boolean_flag_name` (L1611) |
+| [tests/test_commands.py](https://github.com/pallets/click/blob/08b803c/tests/test_commands.py) | 种子 | `test_custom_parser.OptParseCommand.invoke` (L171), `test_abort_exceptions_with_disabled_standalone_mode` (L675), `test_aliased_command_canonical_name` (L329), `test_auto_shorthelp` (L66), `test_command_no_args_is_help` (L98) |
+| [tests/test_testing.py](https://github.com/pallets/click/blob/08b803c/tests/test_testing.py) | 种子 | `test_args` (L439), `test_capture_fd_faulthandler` (L855), `test_capture_fd_logging_handler` (L809), `test_capture_fd_nesting` (L913), `test_capture_fd_nesting.outer_cli` (L921) |
+| [tests/test_options.py](https://github.com/pallets/click/blob/08b803c/tests/test_options.py) | 种子 | `test_default_dual_option_callback.main` (L2015), `test_dual_options_custom_type_sentinel_flag_value.main` (L2447), `test_aliases_for_flags` (L1418), `test_argument_custom_class` (L1273), `test_argument_sharing_param_name_warning` (L3704) |
 | [docs/testing.md](https://github.com/pallets/click/blob/08b803c/docs/testing.md) | 种子 | — |
-| [tests/test_termui.py](https://github.com/pallets/click/blob/08b803c/tests/test_termui.py) | 1 跳邻居 | `test_choices_list_in_prompt` (L257), `test_progressbar_update` (L318), `test_prompt_required_with_required` (L1339), `test_progressbar_hidden_manual` (L101), `test_progressbar_strip_regression` (L44) |
-| [tests/test_defaults.py](https://github.com/pallets/click/blob/08b803c/tests/test_defaults.py) | 1 跳邻居 | `test_lookup_default_callable_in_default_map` (L202), `test_default_map_source` (L253), `test_flag_default_map` (L110), `test_nargs_plus_multiple` (L63), `test_basic_defaults` (L22) |
-| [tests/test_basic.py](https://github.com/pallets/click/blob/08b803c/tests/test_basic.py) | 1 跳邻居 | `test_option_reusing_help_flag` (L88), `test_basic_functionality` (L12), `test_choice_argument_custom_type` (L584), `test_param_squatting_help_option_name` (L71), `test_boolean_switch` (L303) |
-| [tests/test_commands.py](https://github.com/pallets/click/blob/08b803c/tests/test_commands.py) | 种子 | `test_custom_parser.OptParseCommand.invoke` (L171), `test_other_command_invoke.cli` (L11), `test_custom_parser` (L144), `test_deprecated_in_help_messages` (L554), `test_group_with_args` (L129) |
+| [tests/test_termui.py](https://github.com/pallets/click/blob/08b803c/tests/test_termui.py) | 1 跳邻居 | `test_choices_list_in_prompt` (L257), `test_confirmation_prompt` (L1390), `test_echo_via_pager_tty_pager_missing` (L1038), `test_false_show_default_cause_no_default_display_in_prompt` (L1447), `test_file_prompt_default_format` (L285) |
+| [tests/test_defaults.py](https://github.com/pallets/click/blob/08b803c/tests/test_defaults.py) | 1 跳邻居 | `test_basic_defaults` (L22), `test_default_map_nargs` (L519), `test_default_map_source` (L253), `test_default_map_with_callable_flag_value` (L481), `test_flag_default_map` (L110) |
+| [tests/test_basic.py](https://github.com/pallets/click/blob/08b803c/tests/test_basic.py) | 1 跳邻居 | `test_basic_functionality` (L12), `test_basic_group` (L137), `test_boolean_conversion` (L342), `test_boolean_flag` (L325), `test_boolean_switch` (L303) |
 | [tests/test_custom_classes.py](https://github.com/pallets/click/blob/08b803c/tests/test_custom_classes.py) | 1 跳邻居 | `test_context_invoke_type` (L20), `test_context_invoke_type.first` (L40) |
 
-共 10 个文件，约 7350 tokens（预算内）。
+共 10 个文件，约 7216 tokens（预算内），分级：full——完整（跨多文件、核心逻辑）。
 
 ## 调用链
 
@@ -59,15 +59,15 @@ flowchart LR
     src_click_core_py__Context_invoke --> src_click_core_py__callback
     src_click_core_py__Context_invoke --> src_click_core_py__get_default
     src_click_core_py__Context_invoke --> src_click_core_py__type_cast_value
+    src_click_core_py__Command_invoke --> src_click_core_py___format_deprecated_suffix
+    src_click_core_py__Command_invoke --> src_click_core_py__echo
+    src_click_core_py__Command_invoke --> src_click_core_py__invoke
+    src_click_core_py__Command_invoke --> src_click_core_py__style
     src_click_core_py__Group_invoke --> src_click_core_py___process_result
     src_click_core_py__Group_invoke --> src_click_core_py__fail
     src_click_core_py__Group_invoke --> src_click_core_py__invoke
     src_click_core_py__Group_invoke --> src_click_core_py__make_context
     src_click_core_py__Group_invoke --> src_click_core_py__resolve_command
-    src_click_core_py__Command_invoke --> src_click_core_py___format_deprecated_suffix
-    src_click_core_py__Command_invoke --> src_click_core_py__echo
-    src_click_core_py__Command_invoke --> src_click_core_py__invoke
-    src_click_core_py__Command_invoke --> src_click_core_py__style
     src_click_core_py__Context_fail --> src_click_core_py__UsageError
     src_click_testing_py__CliRunner_invoke --> src_click_testing_py__Result
     src_click_testing_py__CliRunner_invoke --> src_click_testing_py___FDCapture
@@ -75,6 +75,14 @@ flowchart LR
     src_click_testing_py__CliRunner_invoke --> src_click_testing_py__get_default_prog_name
     src_click_testing_py__CliRunner_invoke --> src_click_testing_py__getvalue
 ```
+
+## 影响面
+
+改种子文件之前先看这一节：列出调用种子符号的上游文件，也就是改动最先波及的地方（取每文件前 3 个调用者，按调用者重要性排序）。
+
+- 改 `src/click/core.py` 会波及：`src/click/core.py` 的 `Command.invoke`、`src/click/core.py` 的 `Group.invoke`、`src/click/core.py` 的 `Group.invoke._process_result`
+- 改 `src/click/testing.py` 会波及：`src/click/decorators.py` 的 `make_pass_decorator.decorator.new_func`、`src/click/decorators.py` 的 `pass_meta_key.decorator.new_func`、`tests/conftest.py` 的 `runner`
+- 改 `tests/test_commands.py` 会波及：`src/click/decorators.py` 的 `make_pass_decorator.decorator.new_func`、`src/click/decorators.py` 的 `pass_meta_key.decorator.new_func`、`tests/test_arguments.py` 的 `test_argument_custom_class_can_override_type_cast_value_and_never_sees_unset`
 
 ## 群消息佐证
 

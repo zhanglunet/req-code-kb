@@ -40,13 +40,13 @@
 | [docs/testing.md](https://github.com/pallets/click/blob/08b803c/docs/testing.md) | 种子 | — |
 | [tests/test_termui.py](https://github.com/pallets/click/blob/08b803c/tests/test_termui.py) | 种子 | `test_echo_via_pager_streams_each_write.RecordingStream.write` (L937), `FakeClock.time` (L33), `_create_progress` (L37) |
 | [src/click/_termui_impl.py](https://github.com/pallets/click/blob/08b803c/src/click/_termui_impl.py) | 种子 | `ProgressBar.update` (L318), `_PagerWriter.write` (L401), `ProgressBar.render_progress` (L250) |
-| [tests/test_testing.py](https://github.com/pallets/click/blob/08b803c/tests/test_testing.py) | 1 跳邻居 | `test_echo_stdin_control_bytes` (L102), `test_with_echo_via_pager` (L304), `test_catch_exceptions_cli_runner` (L235), `test_capture_fd_stale_reference` (L783), `test_pdb_explicit_streams_honored` (L715) |
-| [tests/test_stream_lifecycle.py](https://github.com/pallets/click/blob/08b803c/tests/test_stream_lifecycle.py) | 1 跳邻居 | `test_sequential_threaded_invokes` (L360), `test_exception_does_not_corrupt_next_invoke` (L430), `test_getvalue_after_isolation_exit` (L142), `test_invoke_with_logger_and_prompt` (L208), `test_sys_streams_restored_after_exception` (L475) |
+| [tests/test_testing.py](https://github.com/pallets/click/blob/08b803c/tests/test_testing.py) | 1 跳邻居 | `test_args` (L439), `test_capture_fd_faulthandler` (L855), `test_capture_fd_logging_handler` (L809), `test_capture_fd_nesting` (L913), `test_capture_fd_nesting.outer_cli` (L921) |
+| [tests/test_stream_lifecycle.py](https://github.com/pallets/click/blob/08b803c/tests/test_stream_lifecycle.py) | 1 跳邻居 | `test_exception_does_not_corrupt_next_invoke` (L430), `test_getvalue_after_isolation_exit` (L142), `test_invoke_with_logger_and_prompt` (L208), `test_invoke_with_logger_warning` (L193), `test_invoke_with_stream_handler_on_stderr` (L246) |
 | [tests/test_options.py](https://github.com/pallets/click/blob/08b803c/tests/test_options.py) | 1 跳邻居 | `test_flag_value_on_option_with_zero_or_one_args` (L3899) |
 | [src/click/termui.py](https://github.com/pallets/click/blob/08b803c/src/click/termui.py) | 2 跳邻居 | `prompt` (L139), `style` (L641), `_interpret_color` (L616) |
 | [tests/conftest.py](https://github.com/pallets/click/blob/08b803c/tests/conftest.py) | 1 跳邻居 | `runner` (L7) |
 
-共 10 个文件，约 6842 tokens（预算内）。
+共 10 个文件，约 7050 tokens（预算内），分级：full——完整（跨多文件、核心逻辑）。
 
 ## 调用链
 
@@ -61,6 +61,12 @@ flowchart LR
     src_click__termui_impl_py__ProgressBar_render_progress --> src_click__termui_impl_py__format_progress_line
     src_click__termui_impl_py__ProgressBar_render_progress --> src_click__termui_impl_py__term_len
 ```
+
+## 影响面
+
+改种子文件之前先看这一节：列出调用种子符号的上游文件，也就是改动最先波及的地方（取每文件前 3 个调用者，按调用者重要性排序）。
+
+- 改 `src/click/testing.py` 会波及：`tests/conftest.py` 的 `runner`、`tests/test_context.py` 的 `test_hiding_of_unset_sentinel_in_callbacks`、`tests/test_options.py` 的 `test_flag_value_on_option_with_zero_or_one_args`
 
 ## 群消息佐证
 

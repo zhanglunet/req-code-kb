@@ -9,8 +9,13 @@
 ```bash
 cd req-code-kb
 python3 -m reqkb --help          # 确认能跑
-python3 tests/test_blind.py      # 确认两用例通过（约 5 秒）
+CLICK_PRE3896=<改动前 checkout> CLICK_PRE3878=<改动前 checkout> \
+    python3 tests/test_blind.py  # 确认两用例通过（约 5 秒）
 ```
+
+两个改动前 checkout 须事先备好（本机在
+`~/workspace/req-code-kb-work/click-pre3896` 与 `click-pre3878`）；
+没设环境变量时脚本会跳过用例、只报“0 个用例通过”，别当成真通过。
 
 断网也不怕：本脚本每段都贴了“预期输出”，现场跑不出来就念预期
 输出、讲逻辑——盲测结果和知识页都已沉淀在仓库里，不是现场现算。
@@ -45,14 +50,20 @@ python3 tests/test_blind.py      # 确认两用例通过（约 5 秒）
 
 ```bash
 python -m reqkb build --repo <click 仓库路径> \
-    --req examples/click-req-3896.md --yes
+    --req examples/click-req-3896.md \
+    --messages examples/messages-3896-sample.json \
+    --repo-url https://github.com/pallets/click --ref 08b803c --yes
 ```
+
+`--messages` 带的是群消息样本文件（虚构格式，见 §4 第 4 点）；
+`--ref` 定死提交，链接才精确到行。带上这三个参数，现场跑出来
+的页与仓库里沉淀的页逐字相同——跑了也不怕盖掉沉淀页。
 
 预期输出（实测）：
 
 ```text
-需求 click-req-3896：种子 ['CliRunner', 'invoke', 'Context', 'color', 'context_settings']
-仓库共 134 个文件；最小上下文 10 个文件，约 7536 tokens（预算 8000）
+需求 click-req-3896：种子 ['CliRunner', 'invoke', 'Context', 'color', 'context_settings']，分级 full
+仓库共 134 个文件；最小上下文 10 个文件，约 7216 tokens（预算 8000）
   [0跳] src/click/core.py ...
   [0跳] src/click/testing.py ...
   ...
@@ -80,7 +91,13 @@ python -m reqkb build --repo <click 仓库路径> \
 3. 调用链 Mermaid 图：`CliRunner.invoke` 调了谁，一眼看到。
 4. 群消息佐证：飞书群里王鹏和张峰讨论这个冲突的三条消息
    （演示用的是虚构格式样本，真实群消息导出后按同样格式进库）。
-5. 验收清单。
+5. 影响面：改这份文件会波及谁——比如改 `src/click/testing.py`
+   会波及哪些测试，现场指一行念出来（这是 11-24 晚新加的，
+   老页没有这一节）。
+6. 验收清单。
+页脚还写着“分级：full——完整（跨多文件、核心逻辑）”：这份上下文
+是按完整档建的；小修用 `--level lite`（4000 tokens）、随手改用
+`--level vibe`（2000 tokens，只给种子文件）。
 
 再打开 `kb/index.json` 指一下：`click-req-3896` 和
 `click-req-3878` 的 `shared_with` 互相挂着——`src/click/testing.py`
@@ -93,15 +110,17 @@ python -m reqkb build --repo <click 仓库路径> \
 python -m reqkb ask --kb kb --q "CliRunner.invoke 怎么传 context 设置？"
 ```
 
-预期：Top-5 片段带出处和分数（第一条 0.797，正好是需求那一节），
-然后是一段拼好的提示词。把提示词贴给现场的大模型问一句，答案
+预期：Top-5 片段带出处和分数（第一条 0.261，正好是需求那一节；
+分数比早期的 0.797 低，是因为知识页多了“影响面”一节、整页变长
+了，排位没变），然后是一段拼好的提示词。把提示词贴给现场的大模型问一句，答案
 当场出来。强调：MVP 不内置大模型调用——检索和拼提示词是确定的，
 模型那一步人肉走，现场少一个翻车点。
 
 ## 6. 验收：怎么证明这不是摆拍（1.5 分钟）
 
 ```bash
-python3 tests/test_blind.py
+CLICK_PRE3896=<改动前 checkout> CLICK_PRE3878=<改动前 checkout> \
+    python3 tests/test_blind.py
 ```
 
 讲方法（这是整个演示最值得学的一点）：
@@ -110,12 +129,12 @@ python3 tests/test_blind.py
 > 仓库切到 PR 合并前的那个提交，输入只有需求描述，看系统能不
 > 能找回真实改动的文件。”
 
-实测结果（2026-11-24）：
+实测结果（2026-11-24，含晚上的种子定义文件保底改动后重测）：
 
 | 用例 | 输出 | 命中 |
 |---|---|---|
-| #3896 | 10 个文件，6823 tokens | 3/5，核心文件 `src/click/testing.py` 在内 |
-| #3878 | 10 个文件，5017 tokens | 2/4，核心文件在内 |
+| #3896 | 10 个文件，6383 tokens | 3/5，核心文件 `src/click/testing.py` 在内 |
+| #3878 | 10 个文件，5405 tokens | 2/4，核心文件在内 |
 
 诚实说漏掉的：两次都漏了 `docs/testing.md` 和 `CHANGES.md`。
 `CHANGES.md` 的条目是 PR 本身加的，改动前不存在，原则上不可召回；

@@ -38,36 +38,43 @@ CLI-Anything 的核心不是“写了很多 CLI”，而是“能批量生出 CL
 
 | 文件 | 关联 | 命中符号 |
 | --- | --- | --- |
-| [README_CN.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/README_CN.md) | 种子 | — |
-| [codex-skill/SKILL.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/codex-skill/SKILL.md) | 种子 | — |
 | [cli-anything-plugin/HARNESS.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/HARNESS.md) | 种子 | — |
-| [cli-hub/cli_hub/matrix_skill.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix_skill.py) | 2 跳邻居 | `_render_stage_tooling` (L355), `render_matrix_skill_file` (L116), `_render_discovery_section` (L395) |
-| [safari/agent-harness/cli_anything/safari/safari_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/safari/agent-harness/cli_anything/safari/safari_cli.py) | 种子 | `cli` (L189), `get_session` (L81), `main` (L621), `repl` (L553) |
-| [sbox/agent-harness/cli_anything/sbox/tests/test_exit_codes.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/sbox/agent-harness/cli_anything/sbox/tests/test_exit_codes.py) | 2 跳邻居 | `_run` (L27), `TestOneShotFailureExitsNonZero` (L51), `TestOneShotFailureExitsNonZero.test_help_exits_zero` (L54) |
-| [safari/agent-harness/cli_anything/safari/tests/test_parity.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/safari/agent-harness/cli_anything/safari/tests/test_parity.py) | 2 跳邻居 | `_cli_name_for` (L27), `TestParityToolCoverage` (L35), `TestParityToolCoverage.setup_method` (L38) |
-| [mubu/agent-harness/skill_generator.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/mubu/agent-harness/skill_generator.py) | 2 跳邻居 | `extract_cli_metadata` (L213) |
-| [docs/scripts/freecad_live_preview_demo.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/docs/scripts/freecad_live_preview_demo.py) | 2 跳邻居 | `_hex_rgb` (L4082), `_rgba` (L4087) |
-| [novita/agent-harness/cli_anything/novita/novita_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/novita/agent-harness/cli_anything/novita/novita_cli.py) | 种子 | `main` (L422) |
+| [docs/PREVIEW_PROTOCOL.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/docs/PREVIEW_PROTOCOL.md) | 种子 | — |
+| [cli-anything-plugin/commands/validate.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/commands/validate.md) | 种子 | — |
+| [cli-anything-plugin/commands/refine.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/commands/refine.md) | 种子 | — |
+| [cli-anything-plugin/skill_generator.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/skill_generator.py) | 种子 | `extract_cli_metadata` (L116), `_format_display_name` (L21), `extract_system_package` (L216) |
+| [cli-anything-plugin/repl_skin.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/repl_skin.py) | 种子 | `ReplSkin` (L106), `ReplSkin.prompt` (L247) |
+| [cli-hub/cli_hub/preview.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/preview.py) | 种子 | `_NoCacheHandler.end_headers` (L1790), `inspect_bundle` (L513), `load_session` (L65) |
+| [eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/commands.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/commands.py) | 种子 | `validator_plan` (L27) |
+| [live2d/agent-harness/cli_anything/live2d/live2d_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/live2d/agent-harness/cli_anything/live2d/live2d_cli.py) | 种子 | `main` (L125) |
 
-共 10 个文件，约 7990 tokens（预算内）。
+共 9 个文件，约 8000 tokens（预算内），分级：full——完整（跨多文件、核心逻辑）。
 
 ## 调用链
 
 ```mermaid
 flowchart LR
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__echo
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__get_session
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__invoke
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__is_available
-    safari_agent_harness_cli_anything_safari_safari_cli_py__get_session --> safari_agent_harness_cli_anything_safari_safari_cli_py__Session
-    safari_agent_harness_cli_anything_safari_safari_cli_py__main --> safari_agent_harness_cli_anything_safari_safari_cli_py__cli
-    safari_agent_harness_cli_anything_safari_safari_cli_py__repl --> safari_agent_harness_cli_anything_safari_safari_cli_py__ReplSkin
-    safari_agent_harness_cli_anything_safari_safari_cli_py__repl --> safari_agent_harness_cli_anything_safari_safari_cli_py__create_prompt_session
-    safari_agent_harness_cli_anything_safari_safari_cli_py__repl --> safari_agent_harness_cli_anything_safari_safari_cli_py__error
-    safari_agent_harness_cli_anything_safari_safari_cli_py__repl --> safari_agent_harness_cli_anything_safari_safari_cli_py__get_input
-    safari_agent_harness_cli_anything_safari_safari_cli_py__repl --> safari_agent_harness_cli_anything_safari_safari_cli_py__get_session
-    novita_agent_harness_cli_anything_novita_novita_cli_py__main --> novita_agent_harness_cli_anything_novita_novita_cli_py__cli
+    cli_anything_plugin_skill_generator_py__extract_cli_metadata --> cli_anything_plugin_skill_generator_py__SkillMetadata
+    cli_anything_plugin_skill_generator_py__extract_cli_metadata --> cli_anything_plugin_skill_generator_py___canonical_skill_name
+    cli_anything_plugin_skill_generator_py__extract_cli_metadata --> cli_anything_plugin_skill_generator_py___format_display_name
+    cli_anything_plugin_skill_generator_py__extract_cli_metadata --> cli_anything_plugin_skill_generator_py__extract_commands_from_cli
+    cli_anything_plugin_skill_generator_py__extract_cli_metadata --> cli_anything_plugin_skill_generator_py__extract_intro_from_readme
+    cli_anything_plugin_skill_generator_py__extract_system_package --> cli_anything_plugin_skill_generator_py__search
+    cli_anything_plugin_repl_skin_py__ReplSkin_prompt --> cli_anything_plugin_repl_skin_py___c
+    cli_hub_cli_hub_preview_py__inspect_bundle --> cli_hub_cli_hub_preview_py___load_trajectory
+    cli_hub_cli_hub_preview_py__inspect_bundle --> cli_hub_cli_hub_preview_py__get
+    cli_hub_cli_hub_preview_py__inspect_bundle --> cli_hub_cli_hub_preview_py__load_bundle
+    cli_hub_cli_hub_preview_py__load_session --> cli_hub_cli_hub_preview_py___read_json
+    cli_hub_cli_hub_preview_py__load_session --> cli_hub_cli_hub_preview_py__resolve_session_ref
+    live2d_agent_harness_cli_anything_live2d_live2d_cli_py__main --> live2d_agent_harness_cli_anything_live2d_live2d_cli_py__cli
 ```
+
+## 影响面
+
+改种子文件之前先看这一节：列出调用种子符号的上游文件，也就是改动最先波及的地方（取每文件前 3 个调用者，按调用者重要性排序）。
+
+- 改 `cli-anything-plugin/repl_skin.py` 会波及：`nslogger/agent-harness/cli_anything/nslogger/nslogger_cli.py` 的 `_run_repl`、`cloudanalyzer/agent-harness/cli_anything/cloudanalyzer/cloudanalyzer_cli.py` 的 `_start_repl`、`mailchimp/agent-harness/cli_anything/mailchimp/mailchimp_cli.py` 的 `_start_repl`
+- 改 `live2d/agent-harness/cli_anything/live2d/live2d_cli.py` 会波及：`macrocli/agent-harness/cli_anything/macrocli/core/runtime.py` 的 `MacroRuntime.validate_macro`、`live2d/agent-harness/cli_anything/live2d/live2d_cli.py` 的 `main`、`macrocli/agent-harness/cli_anything/macrocli/tests/test_core.py` 的 `TestMacroModel.test_structural_validation_bad_backend`
 
 ## 群消息佐证
 

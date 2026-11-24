@@ -38,26 +38,49 @@ CLI-Anything 对外讲的故事：现在的软件是给人用的，未来的用�
 | 文件 | 关联 | 命中符号 |
 | --- | --- | --- |
 | [README.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/README.md) | 种子 | — |
+| [eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/install.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/install.py) | 种子 | `_config_updates` (L24), `_validate_choice` (L19), `install_clients` (L43) |
 | [cli-anything-plugin/HARNESS.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/HARNESS.md) | 种子 | — |
 | [skills/cli-hub-meta-skill/SKILL.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/skills/cli-hub-meta-skill/SKILL.md) | 种子 | — |
 | [cli-hub-meta-skill/SKILL.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub-meta-skill/SKILL.md) | 种子 | — |
 | [cli-hub/cli_hub/matrix_skill.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix_skill.py) | 2 跳邻居 | `_render_stage_tooling` (L355), `render_matrix_skill_file` (L116), `_render_discovery_section` (L395) |
-| [cli-hub/cli_hub/matrix.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix.py) | 2 跳邻居 | `resolve_install_scope` (L352), `provider_cli_name` (L293), `_package_available` (L150) |
-| [safari/agent-harness/cli_anything/safari/tests/test_full_e2e.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/safari/agent-harness/cli_anything/safari/tests/test_full_e2e.py) | 2 跳邻居 | `TestCLISubprocess._run` (L190), `_resolve_cli` (L64), `_should_skip_e2e` (L36) |
-| [safari/agent-harness/cli_anything/safari/safari_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/safari/agent-harness/cli_anything/safari/safari_cli.py) | 种子 | `cli` (L189), `get_session` (L81) |
+| [cc-switch/agent-harness/cli_anything/ccswitch/ccswitch_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cc-switch/agent-harness/cli_anything/ccswitch/ccswitch_cli.py) | 种子 | `cli` (L181), `skills` (L698), `_show_status` (L198), `main` (L982) |
+| [cli-hub/cli_hub/cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/cli.py) | 种子 | `install` (L130), `update` (L163) |
+| [cli-hub/cli_hub/installer.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/installer.py) | 种子 | `install_cli` (L339) |
+| [cli-hub/cli_hub/matrix.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix.py) | 2 跳邻居 | `provider_cli_name` (L293), `_package_available` (L150) |
 
-共 8 个文件，约 7998 tokens（预算内）。
+共 10 个文件，约 7933 tokens（预算内），分级：full——完整（跨多文件、核心逻辑）。
 
 ## 调用链
 
 ```mermaid
 flowchart LR
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__echo
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__get_session
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__invoke
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__is_available
-    safari_agent_harness_cli_anything_safari_safari_cli_py__get_session --> safari_agent_harness_cli_anything_safari_safari_cli_py__Session
+    eth2_quickstart_agent_harness_cli_anything_eth2_quickstart_core_install_py__install_clients --> eth2_quickstart_agent_harness_cli_anything_eth2_quickstart_core_install_py___config_updates
+    eth2_quickstart_agent_harness_cli_anything_eth2_quickstart_core_install_py__install_clients --> eth2_quickstart_agent_harness_cli_anything_eth2_quickstart_core_install_py___validate_choice
+    eth2_quickstart_agent_harness_cli_anything_eth2_quickstart_core_install_py__install_clients --> eth2_quickstart_agent_harness_cli_anything_eth2_quickstart_core_install_py__run_wrapper
+    eth2_quickstart_agent_harness_cli_anything_eth2_quickstart_core_install_py__install_clients --> eth2_quickstart_agent_harness_cli_anything_eth2_quickstart_core_install_py__upsert_user_config
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__cli --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py___show_status
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py___show_status --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__close
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py___show_status --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__connect_db
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py___show_status --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__echo
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py___show_status --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__execute
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py___show_status --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__get
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__main --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__cli
+    cli_hub_cli_hub_cli_py__install --> cli_hub_cli_hub_cli_py__echo
+    cli_hub_cli_hub_cli_py__install --> cli_hub_cli_hub_cli_py__get
+    cli_hub_cli_hub_cli_py__install --> cli_hub_cli_hub_cli_py__get_cli
+    cli_hub_cli_hub_cli_py__install --> cli_hub_cli_hub_cli_py__install_cli
+    cli_hub_cli_hub_cli_py__install --> cli_hub_cli_hub_cli_py__track_install
+    cli_hub_cli_hub_cli_py__update --> cli_hub_cli_hub_cli_py__echo
+    cli_hub_cli_hub_cli_py__update --> cli_hub_cli_hub_cli_py__get_cli
+    cli_hub_cli_hub_cli_py__update --> cli_hub_cli_hub_cli_py__track_install
+    cli_hub_cli_hub_cli_py__update --> cli_hub_cli_hub_cli_py__update_cli
 ```
+
+## 影响面
+
+改种子文件之前先看这一节：列出调用种子符号的上游文件，也就是改动最先波及的地方（取每文件前 3 个调用者，按调用者重要性排序）。
+
+- 改 `cc-switch/agent-harness/cli_anything/ccswitch/ccswitch_cli.py` 会波及：`cc-switch/agent-harness/cli_anything/ccswitch/ccswitch_cli.py` 的 `main`
 
 ## 群消息佐证
 

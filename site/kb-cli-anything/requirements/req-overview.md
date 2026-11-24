@@ -36,30 +36,47 @@ CLI-Anything 是个大仓库（1700 多个文件），第一眼看不到全貌�
 
 | 文件 | 关联 | 命中符号 |
 | --- | --- | --- |
+| [cli-anything-plugin/HARNESS.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/HARNESS.md) | 种子 | — |
+| [cli-hub/cli_hub/matrix.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix.py) | 种子 | `fetch_matrix_registry` (L65) |
 | [README.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/README.md) | 种子 | — |
+| [cli-hub/cli_hub/registry.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/registry.py) | 种子 | `_fetch_json` (L32) |
+| [cli-anything-plugin/repl_skin.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/repl_skin.py) | 种子 | `ReplSkin.prompt` (L247), `ReplSkin` (L106) |
+| [eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/commands.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/commands.py) | 种子 | `validator_plan` (L27) |
 | [cli-anything-plugin/README.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/README.md) | 种子 | — |
-| [cli-hub/cli_hub/matrix.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix.py) | 1 跳邻居 | `fetch_matrix_registry` (L65) |
-| [cli-hub/cli_hub/matrix_skill.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix_skill.py) | 2 跳邻居 | `_render_stage_tooling` (L355), `render_matrix_skill_file` (L116), `_render_discovery_section` (L395) |
-| [safari/agent-harness/cli_anything/safari/safari_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/safari/agent-harness/cli_anything/safari/safari_cli.py) | 种子 | `cli` (L189), `get_session` (L81), `main` (L621) |
-| [cli-hub/cli_hub/installer.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/installer.py) | 2 跳邻居 | `update_cli` (L372), `_load_installed` (L19), `_install_strategy` (L106) |
-| [docs/scripts/freecad_live_preview_demo.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/docs/scripts/freecad_live_preview_demo.py) | 2 跳邻居 | `_hex_rgb` (L4082), `_rgba` (L4087), `parse_args` (L4897) |
-| [cli-hub/tests/test_matrix_skill_dist.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/tests/test_matrix_skill_dist.py) | 2 跳邻居 | `_demo_matrix` (L39), `_make_content_dir` (L19), `TestLookupChain.test_published_url_used_when_no_local_content.FakeResponse` (L133) |
-| [mubu/agent-harness/skill_generator.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/mubu/agent-harness/skill_generator.py) | 2 跳邻居 | `extract_cli_metadata` (L213), `extract_system_package` (L75), `extract_intro_from_readme` (L53) |
-| [safari/agent-harness/cli_anything/safari/tests/test_parity.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/safari/agent-harness/cli_anything/safari/tests/test_parity.py) | 2 跳邻居 | `_cli_name_for` (L27), `TestParityToolCoverage.setup_method` (L38), `TestParityToolCoverage` (L35) |
+| [cli-hub/cli_hub/matrix_skill.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix_skill.py) | 种子 | `_render_stage_tooling` (L355), `render_matrix_skill_file` (L116), `_render_discovery_section` (L395) |
+| [safari/agent-harness/cli_anything/safari/safari_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/safari/agent-harness/cli_anything/safari/safari_cli.py) | 1 跳邻居 | `cli` (L189), `get_session` (L81), `main` (L621) |
+| [cc-switch/agent-harness/cli_anything/ccswitch/ccswitch_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cc-switch/agent-harness/cli_anything/ccswitch/ccswitch_cli.py) | 种子 | `cli` (L181), `skills` (L698), `main` (L982) |
 
-共 10 个文件，约 6642 tokens（预算内）。
+共 10 个文件，约 7812 tokens（预算内），分级：full——完整（跨多文件、核心逻辑）。
 
 ## 调用链
 
 ```mermaid
 flowchart LR
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__echo
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__get_session
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__invoke
-    safari_agent_harness_cli_anything_safari_safari_cli_py__cli --> safari_agent_harness_cli_anything_safari_safari_cli_py__is_available
-    safari_agent_harness_cli_anything_safari_safari_cli_py__get_session --> safari_agent_harness_cli_anything_safari_safari_cli_py__Session
-    safari_agent_harness_cli_anything_safari_safari_cli_py__main --> safari_agent_harness_cli_anything_safari_safari_cli_py__cli
+    cli_hub_cli_hub_matrix_py__fetch_matrix_registry --> cli_hub_cli_hub_matrix_py___ensure_cache_dir
+    cli_hub_cli_hub_matrix_py__fetch_matrix_registry --> cli_hub_cli_hub_matrix_py___load_cached_data
+    cli_hub_cli_hub_matrix_py__fetch_matrix_registry --> cli_hub_cli_hub_matrix_py___load_local_registry
+    cli_hub_cli_hub_matrix_py__fetch_matrix_registry --> cli_hub_cli_hub_matrix_py__get
+    cli_hub_cli_hub_matrix_py__fetch_matrix_registry --> cli_hub_cli_hub_matrix_py__json
+    cli_hub_cli_hub_registry_py___fetch_json --> cli_hub_cli_hub_registry_py___ensure_cache_dir
+    cli_hub_cli_hub_registry_py___fetch_json --> cli_hub_cli_hub_registry_py___load_cached_data
+    cli_hub_cli_hub_registry_py___fetch_json --> cli_hub_cli_hub_registry_py__get
+    cli_hub_cli_hub_registry_py___fetch_json --> cli_hub_cli_hub_registry_py__json
+    cli_anything_plugin_repl_skin_py__ReplSkin_prompt --> cli_anything_plugin_repl_skin_py___c
+    cli_hub_cli_hub_matrix_skill_py___render_stage_tooling --> cli_hub_cli_hub_matrix_skill_py__get
+    cli_hub_cli_hub_matrix_skill_py__render_matrix_skill_file --> cli_hub_cli_hub_matrix_skill_py___copy_matrix_assets
+    cli_hub_cli_hub_matrix_skill_py__render_matrix_skill_file --> cli_hub_cli_hub_matrix_skill_py___load_matrix_skill_template
+    cli_hub_cli_hub_matrix_skill_py__render_matrix_skill_file --> cli_hub_cli_hub_matrix_skill_py___render_injected_section
+    cli_hub_cli_hub_matrix_skill_py__render_matrix_skill_file --> cli_hub_cli_hub_matrix_skill_py___resolve_matrix_content_source
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__cli --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py___show_status
+    cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__main --> cc_switch_agent_harness_cli_anything_ccswitch_ccswitch_cli_py__cli
 ```
+
+## 影响面
+
+改种子文件之前先看这一节：列出调用种子符号的上游文件，也就是改动最先波及的地方（取每文件前 3 个调用者，按调用者重要性排序）。
+
+- 改 `cc-switch/agent-harness/cli_anything/ccswitch/ccswitch_cli.py` 会波及：`cc-switch/agent-harness/cli_anything/ccswitch/ccswitch_cli.py` 的 `main`
 
 ## 群消息佐证
 
