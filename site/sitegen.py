@@ -257,6 +257,88 @@ def count_table_rows(md: str) -> int:
     return 0
 
 
+# ------------------------------------------------------------- page visuals
+# Homepage flow + blind-test chart, and per-page file/token visuals.
+# All inline SVG/CSS, no JavaScript libraries, no CDN.
+
+FLOW_HTML = (
+    '<div class="flow" role="img" aria-label="建库流程：需求文档、抽种子、调用图一跳、'
+    'PageRank 二跳、8000 token 预算、人工确认、知识页">'
+    '<span class="step">需求文档</span><span class="arrow">→</span>'
+    '<span class="step">抽标识符当种子</span><span class="arrow">→</span>'
+    '<span class="step">调用图 1 跳邻居</span><span class="arrow">→</span>'
+    '<span class="step">PageRank 过滤 2 跳</span><span class="arrow">→</span>'
+    '<span class="step">8000 token 预算截断</span><span class="arrow">→</span>'
+    '<span class="step">人工确认</span><span class="arrow">→</span>'
+    '<span class="step strong">知识页</span></div>'
+)
+
+BLIND_SVG = (
+    '<svg class="bars" viewBox="0 0 420 74" role="img" '
+    'aria-label="盲测召回：3896 题找回 5 个中的 3 个，3878 题找回 4 个中的 2 个">'
+    '<text x="0" y="16" class="bar-label">#3896</text>'
+    '<rect x="52" y="5" width="300" height="14" rx="7" class="bar-track"/>'
+    '<rect x="52" y="5" width="180" height="14" rx="7" class="bar-fill"/>'
+    '<text x="360" y="16" class="bar-value">3 / 5</text>'
+    '<text x="0" y="50" class="bar-label">#3878</text>'
+    '<rect x="52" y="39" width="300" height="14" rx="7" class="bar-track"/>'
+    '<rect x="52" y="39" width="150" height="14" rx="7" class="bar-fill"/>'
+    '<text x="360" y="50" class="bar-value">2 / 4</text>'
+    '</svg>'
+    '<p class="muted">召回率：只给需求描述，对照真实改动文件；'
+    'CHANGES.md 在改动前不存在，可达上限为 4/5 与 3/4，核心文件都在内。</p>'
+)
+
+_REL_ROW = re.compile(r"^\|\s*\[.*?\]\(.*?\)\s*\|\s*([^|]+?)\s*\|", re.M)
+_TOKEN_TOTAL = re.compile(r"约\s*([\d,]+)\s*tokens")
+
+
+def extract_relation_counts(md: str) -> dict[str, int]:
+    """Count files by 关联 column （种子 / 1 跳邻居 / 2 跳邻居）."""
+    counts: dict[str, int] = {}
+    for m in _REL_ROW.finditer(md):
+        rel = m.group(1).strip()
+        counts[rel] = counts.get(rel, 0) + 1
+    return counts
+
+
+def extract_token_total(md: str) -> int | None:
+    m = _TOKEN_TOTAL.search(md)
+    return int(m.group(1).replace(",", "")) if m else None
+
+
+def page_viz_html(md: str) -> str:
+    """Per-page visual summary: file-origin stacked bar + token budget bar."""
+    counts = extract_relation_counts(md)
+    total = extract_token_total(md)
+    if not counts and total is None:
+        return ""
+    parts: list[str] = ['<div class="page-viz">']
+    if counts:
+        n = sum(counts.values())
+        colors = {"种子": "#0b5fff", "1 跳邻居": "#1a9e54", "2 跳邻居": "#9ca3af"}
+        segs = "".join(
+            f'<span style="width:{c / n * 100:.1f}%;background:{colors.get(k, "#6b7280")}" '
+            f'title="{html.escape(k)} {c} 个"></span>'
+            for k, c in counts.items()
+        )
+        legend = " · ".join(f"{html.escape(k)} {c} 个" for k, c in counts.items())
+        parts.append(
+            '<div class="viz-block"><h3>文件来源</h3>'
+            f'<div class="stackbar">{segs}</div>'
+            f'<p class="legend">{legend}（共 {n} 个文件）</p></div>'
+        )
+    if total is not None:
+        pct = min(total / 8000 * 100, 100)
+        parts.append(
+            '<div class="viz-block"><h3>Token 预算</h3>'
+            f'<div class="budgetbar"><span style="width:{pct:.1f}%"></span></div>'
+            f'<p class="legend">约 {total:,} / 8,000 tokens（{pct:.0f}%）</p></div>'
+        )
+    parts.append("</div>")
+    return "".join(parts)
+
+
 # ------------------------------------------------------------------- build
 def render_template(name: str, **kw: str) -> str:
     tpl = (ROOT / "templates" / name).read_text(encoding="utf-8")
@@ -304,6 +386,7 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
             raw = sanitize(md_path.read_text(encoding="utf-8"))
             title = extract_title(raw)
             body, has_mermaid = md_to_html(raw)
+            viz = page_viz_html(raw)
             files = index.get(req_id, {}).get("files", [])
             file_count = len(files) or count_table_rows(raw)
             total_files += file_count
@@ -346,7 +429,7 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
                 "base.html",
                 title=f"{title} · {src['title']}",
                 root="../",
-                content=crumb + body,
+                content=crumb + viz + body,
                 generated=generated,
                 mermaid=mermaid_js.replace("{{root}}", "../") if has_mermaid else "",
             )
@@ -381,11 +464,13 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
         "重新跑一遍生成器收进本站；想提问用 <code>reqkb ask</code>，"
         "想验效果用 <code>reqkb eval</code> 跑盲测。"
         "新需求来了，重复这个流程就行，不用手写页面。</p>"
+        + FLOW_HTML +
         "<h2>凭什么可信</h2>"
         "<p>方法在 pallets/click 上做过盲测：拿两个已合并的 PR 当考题，只给需求描述、"
         "仓库回到改动前，再对照真实改动文件——#3896 找回 3/5 个文件，#3878 找回 2/4，"
         "核心文件都在内。方法见<a href=\"https://github.com/zhanglunet/req-code-kb/blob/main/docs/mvp-plan.md\">"
         "盲测方法说明</a>。</p>"
+        + BLIND_SVG +
         "<p>下边按来源仓库列出全部知识页。</p>"
     )
     home = render_template(

@@ -44,3 +44,43 @@ blockquote { border-left:4px solid var(--line); margin:12px 0; padding:2px 14px;
   .card p { color:#d1d5db; }
   pre.mermaid { background:#0b0f14; }
 }
+
+/* --- visuals: flow, charts, per-page summaries --- */
+.flow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0; }
+.flow .step { border:1px solid var(--line); background:var(--soft); border-radius:20px; padding:4px 12px; font-size:14px; white-space:nowrap; }
+.flow .step.strong { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
+.flow .arrow { color:var(--muted); font-size:14px; }
+.bars { width:100%; max-width:420px; height:auto; display:block; margin:10px 0 2px; }
+.bar-track { fill:var(--line); }
+.bar-fill { fill:var(--accent); }
+.bar-label, .bar-value { font-size:13px; fill:var(--ink); font-family:inherit; }
+.page-viz { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:16px 0 4px; }
+.viz-block { border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+.viz-block h3 { margin:0 0 8px; font-size:14px; }
+.viz-block .legend { font-size:13px; color:var(--muted); margin:8px 0 0; }
+.stackbar { display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--line); }
+.stackbar span { display:block; height:100%; }
+.budgetbar { height:14px; border-radius:7px; overflow:hidden; background:var(--line); }
+.budgetbar span { display:block; height:100%; background:var(--accent); border-radius:7px; }
+
+/* --- mobile --- */
+@media (max-width: 640px) {
+  body { line-height:1.7; }
+  .wrap { padding:0 16px; }
+  main { padding:20px 16px 32px; }
+  h1 { font-size:22px; }
+  h2 { font-size:18px; margin-top:24px; }
+  .lead { font-size:15px; }
+  .site-header .wrap { flex-wrap:wrap; gap:4px; padding-top:10px; padding-bottom:10px; }
+  .site-header nav a { margin-left:12px; }
+  .site-header nav a:first-child { margin-left:0; }
+  .cards { grid-template-columns:1fr; }
+  .page-viz { grid-template-columns:1fr; }
+  .flow { flex-direction:column; align-items:stretch; gap:2px; }
+  .flow .step { text-align:center; white-space:normal; }
+  .flow .arrow { transform:rotate(90deg); align-self:center; line-height:1; }
+  table { font-size:13px; }
+  pre { font-size:12px; padding:12px; }
+  pre.mermaid { overflow-x:auto; }
+  pre.mermaid svg { max-width:100% !important; height:auto !important; }
+}
