@@ -62,6 +62,9 @@ blockquote { border-left:4px solid var(--line); margin:12px 0; padding:2px 14px;
 .stackbar span { display:block; height:100%; }
 .budgetbar { height:14px; border-radius:7px; overflow:hidden; background:var(--line); }
 .budgetbar span { display:block; height:100%; background:var(--accent); border-radius:7px; }
+.toc { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 4px; }
+.toc a { border:1px solid var(--line); background:var(--soft); border-radius:20px; padding:2px 12px; font-size:13px; color:var(--ink); }
+.toc a:hover { border-color:var(--accent); text-decoration:none; }
 
 /* --- mobile --- */
 @media (max-width: 640px) {

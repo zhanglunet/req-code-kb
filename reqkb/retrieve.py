@@ -12,7 +12,7 @@ import math
 import re
 from collections import Counter
 
-from .graph import Node, build_graph, file_scores, pagerank
+from .graph import Node, build_graph, file_scores, pagerank, reverse_edges
 from .parse import FileInfo
 
 STOPWORDS = {
@@ -177,15 +177,50 @@ class Context:
         self.files: list[dict] = []  # {path, score, symbols, tokens}
         self.total_tokens = 0
         self.hops: dict[str, int] = {}  # file -> hop distance from a seed
+        self.level = "full"
+        # Impact analysis: seed file -> top callers of its seed symbols
+        # ("caller_path:caller_symbol"), i.e. what breaks if you touch it.
+        self.impact: dict[str, list[str]] = {}
 
     def file_paths(self) -> list[str]:
         return [f["path"] for f in self.files]
 
 
+# Demand levels (borrowed from the AIspec article's Full/Lite/Vibe
+# classification, adapted to this tool): how deep the retrieval goes
+# depends on how big the change is, so a one-line fix doesn't pay the
+# full-context price. full is exactly the old default behaviour.
+LEVELS: dict[str, dict] = {
+    "full": {"budget": 8000, "max_files": 10, "per_file_symbols": 5,
+             "per_file_tokens": 1200, "max_hops": 2,
+             "label": "完整（跨多文件、核心逻辑）"},
+    "lite": {"budget": 4000, "max_files": 6, "per_file_symbols": 4,
+             "per_file_tokens": 1000, "max_hops": 1,
+             "label": "轻量（单模块小修、简单 CRUD）"},
+    "vibe": {"budget": 2000, "max_files": 4, "per_file_symbols": 3,
+             "per_file_tokens": 800, "max_hops": 0,
+             "label": "随手（文字、配置、UI 样式）"},
+}
+
+
 def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
-                  budget_tokens: int = 8000) -> Context:
-    """Seeds -> 1-hop neighbours (always) -> 2-hop by PageRank -> budget cut."""
+                  budget_tokens: int | None = None,
+                  level: str = "full") -> Context:
+    """Seeds -> 1-hop neighbours (always) -> 2-hop by PageRank -> budget cut.
+
+    level picks the depth: full goes 2 hops, lite 1 hop, vibe seeds only.
+    budget_tokens overrides the level's budget when given explicitly.
+    """
+    if level not in LEVELS:
+        raise ValueError(f"unknown level {level!r} (full/lite/vibe)")
+    cfg = LEVELS[level]
+    budget = budget_tokens if budget_tokens is not None else cfg["budget"]
+    max_files = cfg["max_files"]
+    per_file_symbols = cfg["per_file_symbols"]
+    per_file_tokens = cfg["per_file_tokens"]
+    max_hops = cfg["max_hops"]
     ctx = Context(req_id, req_text)
+    ctx.level = level
     index = TfIdfIndex(files)
     scores = score_files(files, index, req_text, ctx.seeds)
     nodes, edges = build_graph(files)
@@ -193,12 +228,15 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     fscores = file_scores(files, rank)
 
     # Seed files: files that define a seed symbol, plus top TF-IDF hits.
+    # vibe keeps only the defining files: a one-line fix shouldn't drag
+    # in five "probably relevant" files.
     seed_files = {
         path for path, info in files.items()
         if {q.split(".")[-1] for q in info.symbols} & set(ctx.seeds)
     }
-    top_tfidf = sorted(scores, key=scores.get, reverse=True)[:5]
-    seed_files.update(p for p in top_tfidf if scores[p] > 0)
+    if level != "vibe":
+        top_tfidf = sorted(scores, key=scores.get, reverse=True)[:5]
+        seed_files.update(p for p in top_tfidf if scores[p] > 0)
     for path in seed_files:
         ctx.hops[path] = 0
 
@@ -207,10 +245,7 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
         node for node in nodes
         if node[1].split(".")[-1] in set(ctx.seeds)
     }
-    callers: dict[Node, set[Node]] = {n: set() for n in nodes}
-    for src, dsts in edges.items():
-        for dst in dsts:
-            callers[dst].add(src)
+    callers = reverse_edges(edges)
 
     def neighbour_files(seed_set: set[Node], hops: int) -> dict[str, int]:
         found: dict[str, int] = {}
@@ -225,26 +260,25 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             frontier = nxt
         return found
 
-    one_hop = neighbour_files(seed_nodes, 1)
-    two_hop = neighbour_files(seed_nodes, 2)
-    two_hop = {p: d for p, d in two_hop.items() if p not in one_hop}
-    if two_hop:
-        # 2-hop files only survive if their PageRank is above the median
-        # of the 2-hop candidates.
-        ranked = sorted(two_hop, key=lambda p: fscores.get(p, 0.0), reverse=True)
-        keep = set(ranked[: max(1, len(ranked) // 2)])
-        two_hop = {p: d for p, d in two_hop.items() if p in keep}
-    ctx.hops.update(one_hop)
-    ctx.hops.update(two_hop)
+    if max_hops >= 1:
+        one_hop = neighbour_files(seed_nodes, 1)
+        ctx.hops.update(one_hop)
+    if max_hops >= 2:
+        two_hop = neighbour_files(seed_nodes, 2)
+        two_hop = {p: d for p, d in two_hop.items() if p not in ctx.hops}
+        if two_hop:
+            # 2-hop files only survive if their PageRank is above the median
+            # of the 2-hop candidates.
+            ranked = sorted(two_hop, key=lambda p: fscores.get(p, 0.0), reverse=True)
+            keep = set(ranked[: max(1, len(ranked) // 2)])
+            two_hop = {p: d for p, d in two_hop.items() if p in keep}
+        ctx.hops.update(two_hop)
 
     # Rank every candidate file by retrieval score, then cut by budget.
     # Fragments are the file's seed / neighbour symbols, not whole files:
     # a whole testing.py alone would eat the budget. Per file we keep
     # at most 8 symbols / 2500 tokens, seed symbols first, then the
     # highest-PageRank neighbours; at most 10 files in total.
-    max_files = 10
-    per_file_symbols = 5
-    per_file_tokens = 1200
     candidates = sorted(ctx.hops, key=lambda p: scores.get(p, 0.0), reverse=True)
     # Translated copies of the same document (README.md / README_CN.md /
     # README_DE.md / ...) say the same thing in different languages and
@@ -272,7 +306,7 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     for path in candidates:
         if len(ctx.files) >= max_files:
             break
-        if ctx.total_tokens >= budget_tokens:
+        if ctx.total_tokens >= budget:
             break
         info = files[path]
         wanted = {
@@ -308,7 +342,7 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             frag_tokens = max(1, len(text) // 4)
             if tokens + frag_tokens > per_file_tokens:
                 continue
-            if ctx.total_tokens + tokens + frag_tokens > budget_tokens:
+            if ctx.total_tokens + tokens + frag_tokens > budget:
                 continue
             tokens += frag_tokens
             callees = sorted({
@@ -322,7 +356,7 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             })
         if not info.is_code:
             tokens = min(info.token_estimate, 1500)
-        if ctx.total_tokens + tokens > budget_tokens:
+        if ctx.total_tokens + tokens > budget:
             continue
         if not symbols and tokens == 0:
             continue  # contributes nothing to the context; skip it
@@ -331,4 +365,28 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             "hop": ctx.hops[path], "symbols": symbols, "tokens": tokens,
         })
         ctx.total_tokens += tokens
+    _compute_impact(ctx, nodes, edges, rank)
     return ctx
+
+
+def _compute_impact(ctx: Context, nodes: set[Node],
+                    edges: dict[Node, set[Node]],
+                    rank: dict[Node, float]) -> None:
+    """For each seed file, who calls its seed symbols (blast radius).
+
+    Only seed files get an impact list: they are the files the change
+    touches first, so their callers are the first thing that can break.
+    Top 3 caller files per seed file, ranked by the caller's PageRank.
+    """
+    callers = reverse_edges(edges)
+    seed_nodes = {
+        node for node in nodes
+        if node[1].split(".")[-1] in set(ctx.seeds)
+    }
+    per_file: dict[str, dict[str, float]] = {}
+    for callee in seed_nodes:
+        for caller in callers.get(callee, ()):
+            per_file.setdefault(callee[0], {})[caller] = rank.get(caller, 0.0)
+    for path, caller_ranks in per_file.items():
+        top = sorted(caller_ranks, key=caller_ranks.get, reverse=True)[:3]
+        ctx.impact[path] = [f"{c[0]}:{c[1]}" for c in top]

@@ -81,15 +81,26 @@ def _is_sep(line: str) -> bool:
     return bool(cells) and all(re.match(r"^:?-{3,}:?$", c) for c in cells)
 
 
-def md_to_html(text: str) -> tuple[str, bool]:
+def _anchor(text: str) -> str:
+    """Slug for a heading id: keep word chars + CJK, collapse the rest."""
+    plain = re.sub(r"[`*_]", "", text)
+    slug = re.sub(r"[^\w\u4e00-\u9fff]+", "-", plain).strip("-")
+    return slug or "section"
+
+
+def md_to_html(text: str) -> tuple[str, bool, list[tuple[int, str, str]]]:
     """Render the Markdown subset the knowledge pages use.
 
-    Returns (html, has_mermaid). Handles headings, paragraphs, flat
-    lists (incl. task lists), GFM tables, fenced code blocks (mermaid
-    gets <pre class="mermaid">), hr and blockquotes.
+    Returns (html, has_mermaid, headings). Headings are (level, text,
+    anchor); h2/h3 get id attributes so a per-page table of contents
+    can link into them. Handles headings, paragraphs, flat lists
+    (incl. task lists), GFM tables, fenced code blocks (mermaid gets
+    <pre class="mermaid">), hr and blockquotes.
     """
     lines = text.splitlines()
     out: list[str] = []
+    headings: list[tuple[int, str, str]] = []
+    seen_anchors: dict[str, int] = {}
     has_mermaid = False
     i = 0
     n = len(lines)
@@ -132,7 +143,13 @@ def md_to_html(text: str) -> tuple[str, bool]:
         if m:
             flush_para(para)
             level = len(m.group(1))
-            out.append(f"<h{level}>" + inline(m.group(2).strip()) + f"</h{level}>")
+            text = m.group(2).strip()
+            anchor = _anchor(text)
+            seen_anchors[anchor] = seen_anchors.get(anchor, 0) + 1
+            if seen_anchors[anchor] > 1:
+                anchor = f"{anchor}-{seen_anchors[anchor]}"
+            headings.append((level, text, anchor))
+            out.append(f'<h{level} id="{anchor}">' + inline(text) + f"</h{level}>")
             i += 1
             continue
         if stripped in ("---", "***", "___"):
@@ -200,7 +217,18 @@ def md_to_html(text: str) -> tuple[str, bool]:
         para.append(line)
         i += 1
     flush_para(para)
-    return "".join(out), has_mermaid
+    return "".join(out), has_mermaid, headings
+
+
+def toc_html(headings: list[tuple[int, str, str]]) -> str:
+    """Per-page table of contents: pill links to the h2 sections."""
+    items = [(t, a) for lvl, t, a in headings if lvl == 2]
+    if not items:
+        return ""
+    links = "".join(
+        f'<a href="#{a}">{html.escape(t)}</a>' for t, a in items
+    )
+    return f'<nav class="toc" aria-label="本页目录">{links}</nav>'
 
 
 # ------------------------------------------------------------- page parsing
@@ -361,6 +389,7 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
         "<script>mermaid.initialize({startOnLoad:true});</script>"
     )
     all_pages: list[dict] = []
+    l2_urls: list[str] = []
     index_sections: list[str] = []
     for src in config["sources"]:
         kb_dir = Path(src["kb_dir"])
@@ -377,6 +406,7 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
         src_dir = out_dir / src["id"]
         src_dir.mkdir(parents=True, exist_ok=True)
         cards: list[str] = []
+        pages_here: list[dict] = []
         total_files = 0
         for req_id in page_ids:
             md_path = md_files.get(req_id)
@@ -385,11 +415,13 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
                 continue
             raw = sanitize(md_path.read_text(encoding="utf-8"))
             title = extract_title(raw)
-            body, has_mermaid = md_to_html(raw)
+            body, has_mermaid, headings = md_to_html(raw)
+            toc = toc_html(headings)
             viz = page_viz_html(raw)
             files = index.get(req_id, {}).get("files", [])
             file_count = len(files) or count_table_rows(raw)
             total_files += file_count
+            level_m = re.search(r"分级：(\w+)", raw)
             shared = index.get(req_id, {}).get("shared_with", [])
             shared_links = []
             for other in shared:
@@ -407,9 +439,11 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
                 "id": req_id, "title": title, "source": src,
                 "file_count": file_count, "shared": shared,
                 "shared_links": shared_links, "summary": extract_summary(raw),
-                "url": url,
+                "url": url, "token_total": extract_token_total(raw),
+                "level": level_m.group(1) if level_m else "",
             }
             all_pages.append(page)
+            pages_here.append(page)
             shared_html = (
                 "<p class=\"meta\">相关需求： " + "、".join(shared_links) + "</p>"
                 if shared_links else ""
@@ -429,17 +463,59 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
                 "base.html",
                 title=f"{title} · {src['title']}",
                 root="../",
-                content=crumb + viz + body,
+                content=crumb + toc + viz + body,
                 generated=generated,
                 mermaid=mermaid_js.replace("{{root}}", "../") if has_mermaid else "",
             )
             (src_dir / f"{req_id}.html").write_text(page_html, encoding="utf-8")
+        # L2 index for this source (the middle layer of the two-level
+        # index): one card per page, with token total and level, so a
+        # reader can pick a page without loading the homepage's full list.
+        l2_cards: list[str] = []
+        for p in pages_here:
+            meta = f"{p['file_count']} 个文件"
+            if p.get("token_total"):
+                meta += f" · 约 {p['token_total']:,} tokens"
+            if p.get("level"):
+                meta += f" · 分级 {p['level']}"
+            l2_shared = "、".join(
+                f'<a href="{o}.html">{html.escape(o)}</a>'
+                for o in p["shared"] if o in page_ids
+            )
+            l2_cards.append(
+                f'<article class="card"><h3><a href="{p["id"]}.html">'
+                f"{html.escape(p['title'])}</a></h3>"
+                f"<p>{html.escape(p['summary'])}</p>"
+                f'<p class="meta">{meta}</p>'
+                + (f'<p class="meta">相关需求： {l2_shared}</p>' if l2_shared else "")
+                + "</article>"
+            )
+        l2_html = render_template(
+            "base.html",
+            title=f"{src['title']} · 全部知识页",
+            root="../",
+            content=(
+                f'<p class="crumb"><a href="../index.html">首页</a> / '
+                f"{html.escape(src['title'])}</p>"
+                f"<h1>{html.escape(src['title'])}</h1>"
+                f"<p class=\"lead\">{html.escape(src.get('blurb', ''))}</p>"
+                f"<p class=\"muted\">源仓库：<a href=\"{html.escape(src['repo_url'], quote=True)}\">"
+                f"{html.escape(src['repo_name'])}</a> · {len(pages_here)} 页 · "
+                f"共 {total_files} 个文件</p>"
+                f"<div class=\"cards\">" + "".join(l2_cards) + "</div>"
+            ),
+            generated=generated,
+            mermaid="",
+        )
+        (src_dir / "index.html").write_text(l2_html, encoding="utf-8")
+        l2_urls.append(f"{src['id']}/")
         index_sections.append(
             f'<section class="source" id="{src["id"]}">'
             f"<h2>{html.escape(src['title'])}</h2>"
             f"<p class=\"lead\">{html.escape(src.get('blurb', ''))}</p>"
             f"<p class=\"muted\">源仓库：<a href=\"{html.escape(src['repo_url'], quote=True)}\">"
-            f"{html.escape(src['repo_name'])}</a> · {len(cards)} 页 · 共 {total_files} 个文件</p>"
+            f"{html.escape(src['repo_name'])}</a> · {len(cards)} 页 · 共 {total_files} 个文件"
+            f" · <a href=\"{src['id']}/index.html\">查看全部 {len(cards)} 页 →</a></p>"
             f"<div class=\"cards\">" + "".join(cards) + "</div></section>"
         )
     intro = (
@@ -458,11 +534,15 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
         "最后由人确认才定稿。</p>"
         "<h2>一页里有什么</h2>"
         "<p>每份知识页对应一个需求，包含需求原文、相关文件表（链接精确到 GitHub 提交）、"
-        "调用链图、群消息佐证、验收清单。</p>"
+        "调用链图、影响面（改动先波及谁）、群消息佐证、验收清单；"
+        "需求做完后，真实改动会记回页末的回流记录。</p>"
         "<h2>怎么用</h2>"
-        "<p>写一份需求文档 → <code>reqkb build</code> 沉淀成知识页 → "
+        "<p>写一份需求文档 → 按大小选分级（<code>--level full</code> 完整、"
+        "<code>lite</code> 轻量、<code>vibe</code> 随手）→ "
+        "<code>reqkb build</code> 沉淀成知识页 → "
         "重新跑一遍生成器收进本站；想提问用 <code>reqkb ask</code>，"
-        "想验效果用 <code>reqkb eval</code> 跑盲测。"
+        "想验效果用 <code>reqkb eval</code> 跑盲测；需求做完跑 "
+        "<code>reqkb harvest</code> 把真实改动记回来，库越用越准。"
         "新需求来了，重复这个流程就行，不用手写页面。</p>"
         + FLOW_HTML +
         "<h2>凭什么可信</h2>"
@@ -486,6 +566,9 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         f"  <url><loc>{base_url}/</loc></url>\n"
+        + "".join(
+            f"  <url><loc>{base_url}/{u}</loc></url>\n" for u in l2_urls
+        )
         + "".join(
             f"  <url><loc>{base_url}/{p['url']}</loc></url>\n" for p in all_pages
         )

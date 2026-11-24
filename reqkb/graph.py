@@ -45,6 +45,20 @@ def build_graph(files: dict[str, FileInfo]) -> tuple[set[Node], dict[Node, set[N
     return nodes, edges
 
 
+def reverse_edges(edges: dict[Node, set[Node]]) -> dict[Node, set[Node]]:
+    """Invert the call graph: callee -> its callers.
+
+    The impact-analysis view (AIspec's blast-radius check in miniature):
+    before touching a symbol, who calls it. Built once here instead of
+    inline in two places.
+    """
+    callers: dict[Node, set[Node]] = {}
+    for src, dsts in edges.items():
+        for dst in dsts:
+            callers.setdefault(dst, set()).add(src)
+    return callers
+
+
 def pagerank(nodes: set[Node], edges: dict[Node, set[Node]],
              damping: float = 0.85, iters: int = 100,
              tol: float = 1e-6) -> dict[Node, float]:

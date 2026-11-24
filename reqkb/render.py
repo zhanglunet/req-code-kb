@@ -11,7 +11,7 @@ import json
 import os
 
 from .graph import Node
-from .retrieve import Context
+from .retrieve import LEVELS, Context
 
 
 def github_link(repo_url: str, ref: str, path: str, line: int | None = None) -> str:
@@ -53,7 +53,8 @@ def render_page(ctx: Context, repo_url: str, ref: str,
         lines.append(f"| [{path}]({link}) | {hop} | {syms} |")
     lines += [
         "",
-        f"共 {len(ctx.files)} 个文件，约 {ctx.total_tokens} tokens（预算内）。",
+        f"共 {len(ctx.files)} 个文件，约 {ctx.total_tokens} tokens（预算内）"
+        f"，分级：{ctx.level}——{LEVELS[ctx.level]['label']}。",
         "",
         "## 调用链",
         "",
@@ -67,6 +68,25 @@ def render_page(ctx: Context, repo_url: str, ref: str,
         lines.append("    %% 种子符号之间没有直接调用关系")
     lines += [
         "```",
+        "",
+        "## 影响面",
+        "",
+        "改种子文件之前先看这一节：列出调用种子符号的上游文件，"
+        "也就是改动最先波及的地方（取每文件前 3 个调用者，按调用者重要性排序）。",
+        "",
+    ]
+    if ctx.impact:
+        for entry in ctx.files:
+            if entry["hop"] != 0 or entry["path"] not in ctx.impact:
+                continue
+            callers = "、".join(
+                f"`{c.rsplit(':', 1)[0]}` 的 `{c.rsplit(':', 1)[1]}`"
+                for c in ctx.impact[entry["path"]]
+            )
+            lines.append(f"- 改 `{entry['path']}` 会波及：{callers}")
+    else:
+        lines.append("种子符号暂无站外调用者。")
+    lines += [
         "",
         "## 群消息佐证",
         "",
