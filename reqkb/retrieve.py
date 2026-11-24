@@ -29,10 +29,19 @@ STOPWORDS = {
 
 _TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
 
 
 def tokenize(text: str) -> list[str]:
-    """Split identifiers on underscores and camelCase humps."""
+    """Split identifiers on underscores and camelCase humps.
+
+    ASCII identifiers split as before. Chinese runs contribute single
+    characters and bigrams (prefixed so they never collide with ASCII
+    tokens): without them a Chinese question tokenizes to nothing and
+    retrieval scores only the backticked identifiers, so a plain
+    Chinese question ("这个仓库有哪些主要模块？") finds no hits at all
+    (observed on CLI-Anything, 2026-11-24).
+    """
     out: list[str] = []
     for raw in _TOKEN_RE.findall(text):
         parts = re.split(r"_", raw)
@@ -41,6 +50,11 @@ def tokenize(text: str) -> list[str]:
                 token = piece.lower()
                 if len(token) >= 2 and token not in STOPWORDS:
                     out.append(token)
+    for run in _CJK_RE.findall(text):
+        for ch in run:
+            out.append("zh_" + ch)
+        for i in range(len(run) - 1):
+            out.append("zh_" + run[i:i + 2])
     return out
 
 
@@ -232,6 +246,29 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     per_file_symbols = 5
     per_file_tokens = 1200
     candidates = sorted(ctx.hops, key=lambda p: scores.get(p, 0.0), reverse=True)
+    # Translated copies of the same document (README.md / README_CN.md /
+    # README_DE.md / ...) say the same thing in different languages and
+    # each scores as high as the original; without dedup they crowd the
+    # budget out (5 variants x 1500 tokens = 7500 of 8000 in one real
+    # run on CLI-Anything, 2026-11-24). Keep only the best-scoring file
+    # per doc family (same directory, same stem before a language suffix).
+    def _doc_family(path: str) -> str | None:
+        if not path.endswith(".md"):
+            return None
+        directory, _, filename = path.rpartition("/")
+        stem = filename[:-3]
+        base = re.sub(r"_[A-Za-z]{2}$", "", stem)
+        return f"{directory}/{base}"
+
+    seen_families: set[str] = set()
+    deduped: list[str] = []
+    for path in candidates:
+        family = _doc_family(path)
+        if family is None or family not in seen_families:
+            deduped.append(path)
+            if family is not None:
+                seen_families.add(family)
+    candidates = deduped
     for path in candidates:
         if len(ctx.files) >= max_files:
             break
