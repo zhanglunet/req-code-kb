@@ -1,0 +1,1 @@
+{"sources": [{"blurb": "req-code-kb 的盲测范例：拿 2 个已合并的 PR 当考题，输入只有需求描述，仓库回到改动前的提交，再对照真实改动文件。", "id": "click", "kb_dir": "kb", "repo_name": "pallets/click", "repo_url": "https://github.com/pallets/click", "title": "pallets/click 范例"}]}
