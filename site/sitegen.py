@@ -311,8 +311,11 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
             shared_links = []
             for other in shared:
                 if other in page_ids:
+                    # Cards live on the homepage (site root); pages live
+                    # under dist/<source id>/, so the link needs the
+                    # source prefix too.
                     shared_links.append(
-                        f'<a href="{other}.html">{html.escape(other)}</a>'
+                        f'<a href="{src["id"]}/{other}.html">{html.escape(other)}</a>'
                     )
                 else:
                     shared_links.append(html.escape(other))
@@ -329,7 +332,7 @@ def build_site(config_path: Path, out_dir: Path, base_url: str) -> dict:
                 if shared_links else ""
             )
             cards.append(
-                f'<article class="card"><h3><a href="{req_id}.html">{html.escape(title)}</a></h3>'
+                f'<article class="card"><h3><a href="{src["id"]}/{req_id}.html">{html.escape(title)}</a></h3>'
                 f"<p>{html.escape(page['summary'])}</p>"
                 f'<p class="meta">{file_count} 个文件 · {len(shared)} 个共享需求</p>'
                 f"{shared_html}</article>"
