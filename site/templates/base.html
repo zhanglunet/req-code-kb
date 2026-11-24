@@ -3,18 +3,55 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="{{description}}">
 <title>{{title}} · req-code-kb 知识库</title>
+<script>
+(function(){
+  try {
+    var saved = localStorage.getItem('reqkb-theme');
+    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="{{root}}assets/style.css">
 </head>
-<body>
-<header class="site-header"><div class="wrap">
-<a class="brand" href="{{root}}index.html">req-code-kb 知识库</a>
-<nav><a href="{{root}}index.html">首页</a><a href="https://github.com/zhanglunet/req-code-kb">工具仓库</a></nav>
-</div></header>
-<main class="wrap">{{content}}</main>
-<footer class="site-footer"><div class="wrap">
-<p>由 <a href="https://github.com/zhanglunet/req-code-kb">req-code-kb</a> 生成 · {{generated}} · 调用链图由 Mermaid 本地渲染</p>
-</div></footer>
+<body class="{{body_class}}">
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="{{root}}index.html" aria-label="req-code-kb 知识库首页">
+      <svg class="brand-mark" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="2" y="2" width="20" height="20" rx="6" fill="currentColor" opacity="0.12"/>
+        <circle cx="8" cy="8.5" r="2.2" fill="currentColor"/>
+        <circle cx="16" cy="8.5" r="2.2" fill="currentColor" opacity="0.55"/>
+        <circle cx="12" cy="15.5" r="2.2" fill="currentColor" opacity="0.8"/>
+        <path d="M9.8 9.6L11.1 13.7M14.2 9.6L12.9 13.7M10.2 8.5H13.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">req-code-kb</span>
+      <span class="brand-tag">知识库</span>
+    </a>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="{{root}}index.html">首页</a>
+      <a href="{{root}}index.html#catalog">全部知识页</a>
+      <a href="https://github.com/zhanglunet/req-code-kb" target="_blank" rel="noopener noreferrer" class="nav-external">GitHub<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3.5 2.5H9.5V8.5M9.5 2.5L2.5 9.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+      <button type="button" id="theme-toggle" class="icon-btn" aria-label="切换浅色或深色主题" title="切换浅色 / 深色主题">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+<main class="wrap main-content">{{content}}</main>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <p>由 <a href="https://github.com/zhanglunet/req-code-kb" target="_blank" rel="noopener noreferrer">req-code-kb</a> 自动生成 · {{generated}}</p>
+    <p class="footer-note">纯标准库静态构建 · Mermaid 本地离线渲染</p>
+  </div>
+</footer>
+<button type="button" id="back-to-top" class="back-to-top" aria-label="返回顶部" title="返回顶部">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 15l-6-6-6 6"/></svg>
+</button>
 {{mermaid}}
+<script src="{{root}}assets/app.js" defer></script>
 </body>
 </html>

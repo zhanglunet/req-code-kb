@@ -45,7 +45,8 @@ python3 sitegen.py --out /tmp/preview   # 换个输出目录也行
 | `sitegen.py` | 生成器：标准库迷你 Markdown 渲染（标题、段落、列表、任务清单、GFM 表格、代码块、Mermaid）+ 建站 |
 | `sources.json` | 知识库来源清单 |
 | `templates/base.html` | 页面骨架 |
-| `templates/style.css` | 全站样式（浅色/深色自适应） |
+| `templates/style.css` | 全站样式（浅色/深色主题与响应式排版） |
+| `templates/app.js` | 轻量交互增强（主题切换、Mermaid 主题同步、实时筛选、目录高亮） |
 | `assets/mermaid.min.js` | Mermaid v10.9.1（本地化，页面离线也能画调用链图） |
 | `dist/` | 生成产物：`index.html`、每来源一目录、每需求一页、`sitemap.xml` |
 | `DEPLOY.md` | 部署方案（Cloudflare Pages） |
