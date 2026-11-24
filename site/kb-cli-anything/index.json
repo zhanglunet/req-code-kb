@@ -1,0 +1,76 @@
+{
+  "req-hub": {
+    "files": [
+      "cli-hub/cli_hub/installer.py",
+      "cli-hub/cli_hub/cli.py",
+      "cli-hub/cli_hub/registry.py",
+      "README.md",
+      ".github/scripts/generate_meta_skill.py",
+      "cli-hub/cli_hub/matrix_skill.py",
+      "cli-hub/cli_hub/matrix.py",
+      "cli-hub/tests/test_cli_hub.py",
+      "safari/agent-harness/cli_anything/safari/safari_cli.py",
+      "lldb/agent-harness/cli_anything/lldb/dap.py"
+    ],
+    "shared_with": [
+      "req-overview",
+      "req-core",
+      "req-selling"
+    ]
+  },
+  "req-overview": {
+    "files": [
+      "README.md",
+      "cli-anything-plugin/README.md",
+      "cli-hub/cli_hub/matrix.py",
+      "cli-hub/cli_hub/matrix_skill.py",
+      "safari/agent-harness/cli_anything/safari/safari_cli.py",
+      "cli-hub/cli_hub/installer.py",
+      "docs/scripts/freecad_live_preview_demo.py",
+      "cli-hub/tests/test_matrix_skill_dist.py",
+      "mubu/agent-harness/skill_generator.py",
+      "safari/agent-harness/cli_anything/safari/tests/test_parity.py"
+    ],
+    "shared_with": [
+      "req-hub",
+      "req-core",
+      "req-selling"
+    ]
+  },
+  "req-core": {
+    "files": [
+      "README_CN.md",
+      "codex-skill/SKILL.md",
+      "cli-anything-plugin/HARNESS.md",
+      "cli-hub/cli_hub/matrix_skill.py",
+      "safari/agent-harness/cli_anything/safari/safari_cli.py",
+      "sbox/agent-harness/cli_anything/sbox/tests/test_exit_codes.py",
+      "safari/agent-harness/cli_anything/safari/tests/test_parity.py",
+      "mubu/agent-harness/skill_generator.py",
+      "docs/scripts/freecad_live_preview_demo.py",
+      "novita/agent-harness/cli_anything/novita/novita_cli.py"
+    ],
+    "shared_with": [
+      "req-hub",
+      "req-overview",
+      "req-selling"
+    ]
+  },
+  "req-selling": {
+    "files": [
+      "README.md",
+      "cli-anything-plugin/HARNESS.md",
+      "skills/cli-hub-meta-skill/SKILL.md",
+      "cli-hub-meta-skill/SKILL.md",
+      "cli-hub/cli_hub/matrix_skill.py",
+      "cli-hub/cli_hub/matrix.py",
+      "safari/agent-harness/cli_anything/safari/tests/test_full_e2e.py",
+      "safari/agent-harness/cli_anything/safari/safari_cli.py"
+    ],
+    "shared_with": [
+      "req-hub",
+      "req-overview",
+      "req-core"
+    ]
+  }
+}
