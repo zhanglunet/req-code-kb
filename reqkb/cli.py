@@ -25,6 +25,7 @@ from .parse import parse_repo
 from .qa import ask
 from .render import render_page, update_index
 from .retrieve import LEVELS, build_context, extract_seed_identifiers, tokenize
+from .treesitter import EXTENSIONS, OptionalLanguageError
 
 
 def _load_req(path: str) -> tuple[str, str]:
@@ -92,7 +93,7 @@ def cmd_build(args) -> int:
     repo_path, tmp = _repo_local_path(args.repo)
     try:
         budget = args.budget if args.budget is not None else LEVELS[args.level]["budget"]
-        files = parse_repo(repo_path)
+        files = parse_repo(repo_path, languages=args.language)
         ctx = build_context(files, req_id, req_text,
                             budget_tokens=budget, level=args.level)
         print(f"需求 {req_id}：种子 {ctx.seeds}，分级 {args.level}")
@@ -140,7 +141,7 @@ def cmd_ask(args) -> int:
 def cmd_eval(args) -> int:
     req_id, req_text = _load_req(args.req)
     budget = args.budget if args.budget is not None else LEVELS[args.level]["budget"]
-    files = parse_repo(args.repo)
+    files = parse_repo(args.repo, languages=args.language)
     ctx = build_context(files, req_id, req_text,
                         budget_tokens=budget, level=args.level)
     expected = [p.strip() for p in args.expected.split(",") if p.strip()]
@@ -215,6 +216,10 @@ def main(argv=None) -> int:
     p_eval.add_argument("--budget", type=int, default=None)
     p_eval.set_defaults(func=cmd_eval)
 
+    for command in (p_build, p_eval):
+        command.add_argument("--language", action="append", choices=EXTENSIONS, default=[],
+                             help="启用一种可选代码语言，可重复传入")
+
     p_harvest = sub.add_parser(
         "harvest",
         help="record what a merged PR really changed (knowledge flywheel)")
@@ -231,7 +236,10 @@ def main(argv=None) -> int:
     p_harvest.set_defaults(func=cmd_harvest)
 
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except OptionalLanguageError as exc:
+        parser.error(str(exc))
 
 
 if __name__ == "__main__":

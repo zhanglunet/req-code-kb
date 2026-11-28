@@ -14,19 +14,19 @@ Node = tuple[str, str]  # (file path, qualified symbol name)
 
 
 def build_graph(files: dict[str, FileInfo]) -> tuple[set[Node], dict[Node, set[Node]]]:
-    """Resolve calls to definitions by simple name.
+    """Resolve calls to definitions by simple name within a language.
 
     Same-file definitions win; otherwise every same-named definition
     in the repo is linked (PageRank tolerates the noise, and the
     retrieval score -- not the graph -- does the precise localisation).
     """
-    by_simple: dict[str, list[Node]] = {}
+    by_simple: dict[tuple[str | None, str], list[Node]] = {}
     nodes: set[Node] = set()
     for path, info in files.items():
         for qualname in info.symbols:
             node = (path, qualname)
             nodes.add(node)
-            by_simple.setdefault(qualname.split(".")[-1], []).append(node)
+            by_simple.setdefault((info.language, qualname.split(".")[-1]), []).append(node)
 
     edges: dict[Node, set[Node]] = {n: set() for n in nodes}
     for path, info in files.items():
@@ -37,7 +37,7 @@ def build_graph(files: dict[str, FileInfo]) -> tuple[set[Node], dict[Node, set[N
                 if src not in nodes:
                     continue
             for callee_name, _lineno in calls:
-                targets = by_simple.get(callee_name, [])
+                targets = by_simple.get((info.language, callee_name), [])
                 same_file = [t for t in targets if t[0] == path]
                 for tgt in same_file or targets:
                     if tgt != src:

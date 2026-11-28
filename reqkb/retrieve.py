@@ -33,6 +33,7 @@ _QUALIFIED_REF_RE = re.compile(r"([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)(?:\(\))?")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_FILE_NAME_SCORE = 5.0
 
 
 def split_markdown_sections(lines: list[str]) -> list[dict]:
@@ -311,8 +312,8 @@ def score_files(files: dict[str, FileInfo], index: TfIdfIndex,
         # count as a mention of the seed.
         quoted = set(extract_seed_identifiers(info.text))
         score += 3.0 * len(seed_set & quoted)
-        if path.rsplit(".", 1)[0].rsplit("/", 1)[-1] in seed_set:
-            score += 5.0  # file name itself is named by the requirement
+        if _file_stem(path) in seed_set:
+            score += _FILE_NAME_SCORE
         scores[path] = score
     return scores
 
@@ -489,12 +490,9 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     # files that merely call it -- in one real run on CLI-Anything,
     # `repl_skin.py` (defines `ReplSkin`) ranked 388th by score and
     # never made the cut, while its callers did. But strict tiers
-    # misorder the other way: a tier-0 file scoring 5
-    # (`eth2/.../install.py`) sat above `cli.py` scoring 63, the hub's
-    # own entry point. A +20 / +10 bonus keeps the floor's protection
-    # (a tier-0 file scoring 10 still beats a tier-1 file scoring 14,
-    # which is what saves `repl_skin.py`) while letting a large score
-    # gap dominate across tiers.
+    # misorder the other way: a low-scoring exact-name file (such as
+    # `eth2/.../install.py`) can outrank evidence from the hub itself.
+    # Cap that bonus using evidence beyond the filename match.
     # One file per stem in the floor group: a monorepo holds dozens of
     # copies of the same named file (63 repl_skin.py, 7 HARNESS.md);
     # keep the shallowest (the plugin's own, not an app's copy), then
@@ -502,18 +500,30 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     # demoted: a demoted copy would re-enter right behind on score
     # (safari's HARNESS.md scores 47) and eat the budget again.
     seed_set = set(ctx.seeds)
+    named_paths = {span.strip().removeprefix("./") for span in _BACKTICK_RE.findall(req_text)}
     floor_set = {
         p for p in ctx.hops if _is_seed_named(p, files[p], seed_set)
     }
-    keep_floor: dict[str, str] = {}
+    keep_floor: dict[tuple[str | None, str], str] = {}
+
+    def name_priority(path: str) -> int:
+        if path in named_paths:
+            return 0
+        if path.rsplit("/", 1)[-1] in named_paths:
+            return 1
+        return 2
+
+    def floor_priority(path: str) -> tuple[int, int, float, str]:
+        return (name_priority(path), path.count("/"), -round(scores[path], 9), path)
+
     for p in floor_set:
-        stem = _file_stem(p)
-        cur = keep_floor.get(stem)
-        if cur is None or (p.count("/"), -scores.get(p, 0.0)) < (
-            cur.count("/"),
-            -scores.get(cur, 0.0),
-        ):
-            keep_floor[stem] = p
+        # Hand-written code in different languages can intentionally
+        # share a stem (for example a deployment script and its SQL).
+        language = files[p].language
+        key = (None if language == "python" else language, _file_stem(p))
+        current = keep_floor.get(key)
+        if current is None or floor_priority(p) < floor_priority(current):
+            keep_floor[key] = p
     keep_floor_set = set(keep_floor.values())
 
     def _floor_tier(path: str) -> int:
@@ -546,17 +556,18 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     # rehearsal caught it (same file list, different symbols, 7445 vs
     # 7951 tokens). A build must be reproducible byte for byte.
     def _walk_bonus(path: str) -> float:
-        """Ordering bonus by tier. The numbers are set by two real
-        cases, not by feel: tier 0 needs +55 because `repl_skin.py`
-        (raw score 10.7) must beat the generic `README_CN.md` (62.0)
-        that merely mentions the words -- without it the two 1500-token
-        docs eat the budget before the mechanism file is reached.
-        Tier 2 gets only +5, so a prefix match like `search_members.py`
-        (raw 2.2) cannot ride into the top 10 on the name alone.
-        """
+        """Reward exact names in proportion to their independent evidence."""
         if path not in keep_floor_set:
             return 0.0
-        return {0: 55.0, 1: 10.0, 2: 5.0}.get(_floor_tier(path), 0.0)
+        tier = _floor_tier(path)
+        if tier == 0:
+            if name_priority(path) < 2:
+                return 55.0
+            # Keep the full +55 for repl_skin.py (raw 10.7) while giving
+            # install.py (raw 5.06) almost no additional boost.
+            evidence = max(0.0, scores[path] - _FILE_NAME_SCORE)
+            return min(55.0, 10.0 * evidence)
+        return {1: 10.0, 2: 5.0}.get(tier, 0.0)
 
     candidates.sort(
         key=lambda p: (-(scores.get(p, 0.0) + _walk_bonus(p)), p),
@@ -584,6 +595,9 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             if family is not None:
                 seen_families.add(family)
     candidates = deduped
+    sql_query_terms = set(tokenize(req_text)) if any(
+        files[path].language == "sql" for path in candidates
+    ) else set()
     for path in candidates:
         if len(ctx.files) >= max_files:
             break
@@ -597,6 +611,17 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             or any((path, q) in edges.get(n, ()) or (path, q) in callers.get(n, ())
                    for n in seed_nodes)
         }
+        statement_scores: dict[str, int] = {}
+        if info.language == "sql":
+            # Statements such as SELECT have synthetic names. Include
+            # relevant statements even if a named DDL symbol already matched.
+            for q in info.symbols:
+                _, _, snippet = info.snippet(q)
+                matches = len(sql_query_terms.intersection(tokenize(snippet)))
+                if matches:
+                    statement_scores[q] = matches
+            best_statements = sorted(statement_scores, key=lambda q: (-statement_scores[q], q))
+            wanted.update(best_statements[:3])
         if not wanted:
             if info.is_code:
                 # Seed file with no matching symbol (e.g. a test module
@@ -613,6 +638,7 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             wanted,
             key=lambda q: (
                 0 if q.split(".")[-1] in set(ctx.seeds) else 1,
+                -statement_scores.get(q, 0),
                 -round(rank.get((path, q), 0.0), 9),
                 q,
             ),
