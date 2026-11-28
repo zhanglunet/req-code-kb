@@ -32,7 +32,8 @@ def _source_language(path: str) -> str | None:
     return SOURCE_LANGUAGES.get(os.path.splitext(path)[1])
 
 
-def iter_source_files(root: str, *, languages: Iterable[str] = ()):
+def iter_source_files(root: str, *, languages: Iterable[str] = (),
+                      skipped_languages: dict[str, int] | None = None):
     """Find Python, Markdown and explicitly enabled source formats."""
     enabled = {"python", *languages}
     out = []
@@ -41,9 +42,11 @@ def iter_source_files(root: str, *, languages: Iterable[str] = ()):
         for name in sorted(filenames):
             language = _source_language(name)
             markdown = name.endswith(".md")
-            if not markdown and language not in enabled:
-                continue
             if language == "javascript" and os.path.splitext(name)[0].endswith(".min"):
+                continue
+            if not markdown and language not in enabled:
+                if language is not None and skipped_languages is not None:
+                    skipped_languages[language] = skipped_languages.get(language, 0) + 1
                 continue
             full = os.path.join(dirpath, name)
             if markdown and os.path.getsize(full) > MAX_MD_BYTES:
@@ -191,12 +194,14 @@ def parse_file(rel_path: str, full_path: str) -> FileInfo:
     return info
 
 
-def parse_repo(root: str, *, languages: Iterable[str] = ()) -> dict[str, FileInfo]:
+def parse_repo(root: str, *, languages: Iterable[str] = (),
+               skipped_languages: dict[str, int] | None = None) -> dict[str, FileInfo]:
     """Parse the selected source files under root, indexed by relative path."""
     languages = tuple(languages)
     for name in languages:
         load_language(name)
     files: dict[str, FileInfo] = {}
-    for rel, full in iter_source_files(root, languages=languages):
+    for rel, full in iter_source_files(root, languages=languages,
+                                       skipped_languages=skipped_languages):
         files[rel] = parse_file(rel, full)
     return files

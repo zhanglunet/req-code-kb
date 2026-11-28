@@ -29,8 +29,10 @@ def load_language(name: str):
         grammar = import_module(f"tree_sitter_{name}")
         return Language(grammar.language())
     except (ImportError, ValueError) as exc:
+        extensions = ", ".join(EXTENSIONS[name])
         raise OptionalLanguageError(
-            f"Could not load the {name} parser. "
+            f"Could not load the {name} parser for {extensions} files. "
+            f"Indexing stopped. These files will be skipped if you rerun without --language {name}. "
             "Install the optional parsers with "
             "'python -m pip install -r requirements-treesitter.txt'."
         ) from exc
