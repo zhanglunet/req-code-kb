@@ -77,14 +77,41 @@ class MultilangTest(unittest.TestCase):
 
     def test_python_remains_the_default_without_dependencies(self):
         self.assertEqual(list(parse_repo(str(self.repo))), ["guide.md", "plain.py"])
+        kb = self.root / "default"
         result = self.run_cli(
             "build", "--repo", str(self.repo), "--req", str(self.req),
-            "--kb", str(self.root / "kb"), "--language", "javascript", "--yes",
+            "--kb", str(kb), "--yes", no_site=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("bash: 1", result.stderr)
+        self.assertIn("javascript: 2", result.stderr)
+        self.assertIn("sql: 2", result.stderr)
+        self.assertIn("--language bash --language javascript --language sql", result.stderr)
+        self.assertIn("requirements-treesitter.txt", result.stderr)
+        page = (kb / "requirements/mixed.md").read_text(encoding="utf-8")
+        self.assertNotIn("widget.sh", page)
+        self.assertNotIn("widget.sql", page)
+        checked = self.run_cli(
+            "eval", "--repo", str(self.repo), "--req", str(self.req),
+            "--expected", "guide.md", "--core", "guide.md", "--min-recall", "1",
             no_site=True,
         )
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        self.assertIn("sql: 2", checked.stderr)
+
+    def test_missing_optional_parser_explains_indexing_impact(self):
+        kb = self.root / "missing"
+        result = self.run_cli(
+            "build", "--repo", str(self.repo), "--req", str(self.req),
+            "--kb", str(kb), "--language", "sql", "--yes",
+            no_site=True,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(".sql", result.stderr)
+        self.assertIn("will be skipped", result.stderr)
         self.assertIn("requirements-treesitter.txt", result.stderr)
         self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse(kb.exists())
 
     @unittest.skipUnless(HAS_PARSERS, "install requirements-treesitter.txt")
     def test_sql_snippets_include_the_matching_statement(self):
@@ -215,6 +242,7 @@ class MultilangTest(unittest.TestCase):
         kb = self.root / "kb"
         built = self.run_cli("build", *common, "--kb", str(kb), "--yes")
         self.assertEqual(built.returncode, 0, built.stderr)
+        self.assertEqual(built.stderr, "")
         page = (kb / "requirements/mixed.md").read_text(encoding="utf-8")
         self.assertIn("`WidgetRegistry.get` (L3)", page)
         self.assertIn("`setup_widgets` (L3)", page)

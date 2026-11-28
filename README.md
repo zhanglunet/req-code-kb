@@ -29,6 +29,9 @@ python3 tests/test_blind.py
 或 SQL 时，安装可选的 Tree-sitter 解析器，再为 `build` 或 `eval` 选择语言。
 可以重复使用 `--language`。
 
+`build` 和 `eval` 会在标准错误中按语言提示跳过的代码文件数，并给出对应
+的启用参数。显式启用的解析器缺失时，命令报告受影响的扩展名并停止。
+
 ```bash
 python3 -m pip install -r requirements-treesitter.txt
 python3 -m reqkb build --repo <仓库路径或 URL> --req <需求文档.md> --yes \

@@ -35,6 +35,21 @@ def _load_req(path: str) -> tuple[str, str]:
     return req_id, text
 
 
+def _parse_cli_repo(root: str, languages: list[str]):
+    skipped: dict[str, int] = {}
+    files = parse_repo(root, languages=languages, skipped_languages=skipped)
+    if skipped:
+        entries = ", ".join(
+            f"{name}: {skipped[name]} 个 ({'/'.join(EXTENSIONS[name])})"
+            for name in sorted(skipped)
+        )
+        flags = " ".join(f"--language {name}" for name in sorted(skipped))
+        print(f"提示：已跳过未启用的代码文件（{entries}）。"
+              "安装可选解析器：python -m pip install -r requirements-treesitter.txt。"
+              f"重新运行时加上 {flags} 以索引这些文件。", file=sys.stderr)
+    return files
+
+
 def _repo_local_path(repo: str) -> tuple[str, str | None]:
     """Return (local path, temp dir to clean up or None)."""
     if os.path.isdir(repo):
@@ -93,7 +108,7 @@ def cmd_build(args) -> int:
     repo_path, tmp = _repo_local_path(args.repo)
     try:
         budget = args.budget if args.budget is not None else LEVELS[args.level]["budget"]
-        files = parse_repo(repo_path, languages=args.language)
+        files = _parse_cli_repo(repo_path, args.language)
         ctx = build_context(files, req_id, req_text,
                             budget_tokens=budget, level=args.level)
         print(f"需求 {req_id}：种子 {ctx.seeds}，分级 {args.level}")
@@ -141,7 +156,7 @@ def cmd_ask(args) -> int:
 def cmd_eval(args) -> int:
     req_id, req_text = _load_req(args.req)
     budget = args.budget if args.budget is not None else LEVELS[args.level]["budget"]
-    files = parse_repo(args.repo, languages=args.language)
+    files = _parse_cli_repo(args.repo, args.language)
     ctx = build_context(files, req_id, req_text,
                         budget_tokens=budget, level=args.level)
     expected = [p.strip() for p in args.expected.split(",") if p.strip()]
