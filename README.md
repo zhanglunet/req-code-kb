@@ -19,7 +19,7 @@ python -m reqkb build --repo <仓库路径或 URL> --req examples/click-req-3896
 # 2. 拿新需求问知识库（只检索 + 拼提示词，不调大模型）
 python -m reqkb ask --kb kb --q "CliRunner.invoke 怎么传 context 设置？"
 
-# 3. 盲测验收（见 tests/test_blind.py）
+# 3. 盲测验收（先按 tests/test_blind.py 准备三个历史版本）
 python3 tests/test_blind.py
 ```
 
@@ -45,17 +45,19 @@ python3 tests/test_blind.py
 
 ## 盲测验收（已跑通）
 
-范例仓库是 pallets/click（91 个 `.py` 文件）。拿两个已合并的 PR
-当盲测：输入只有需求描述，仓库回到改动前的提交，再对照真实改动
-文件。2026-11-24 实测全部通过：
+盲测使用 pallets/click 的三个已合并 PR。检索时只输入需求描述，并使用
+改动前的源码。检索结束后与真实改动文件对照。历史版本的准备命令见
+[`tests/test_blind.py`](tests/test_blind.py)，完整运行会报告三个用例。
 
 | 用例 | 输出 | 命中 |
 |---|---|---|
-| click #3896（给 `CliRunner.invoke` 加 `context_settings`） | 10 个文件，6823 tokens | 3/5，核心文件 `src/click/testing.py` 在内 |
-| click #3878（`\x04` / `\x1a` 回显为 `^D` / `^Z`） | 10 个文件，5017 tokens | 2/4，核心文件在内 |
+| click #3896（给 `CliRunner.invoke` 加 `context_settings`） | 10 个文件，7181 tokens | 4/5，含 `src/click/testing.py` 和 `docs/testing.md` |
+| click #3878（`\x04` / `\x1a` 回显为 `^D` / `^Z`） | 10 个文件，5405 tokens | 2/4，含 `src/click/testing.py` |
+| click #3902（帮助文本内带连字符的名称保持完整） | 10 个文件，5689 tokens | 4/6，含 `src/click/formatting.py` 和 `src/click/_textwrap.py` |
 
-两次都漏了 `docs/testing.md` 和 `CHANGES.md`（后者的条目是 PR 本身
-加的，改动前不存在，原则上不可召回）。详见 `docs/mvp-plan.md` §10。
+#3902 将验证范围扩展到帮助文本排版。文件级命中只说明文件进入上下文，
+例如命中 `CHANGES.md` 时，改动前的文件还没有该 PR 新增的条目。
+详见 [MVP 方案 §10](docs/mvp-plan.md)。
 
 ## 为什么不整仓倒进去
 

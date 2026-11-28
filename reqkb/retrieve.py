@@ -29,6 +29,7 @@ STOPWORDS = {
 
 _TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
+_QUALIFIED_REF_RE = re.compile(r"([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)(?:\(\))?")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
@@ -131,6 +132,15 @@ def extract_seed_identifiers(req_text: str) -> list[str]:
     return seeds
 
 
+def _qualified_references(text: str) -> set[str]:
+    """Preserve dotted API names in inline code, ignoring empty call parentheses."""
+    return {
+        match[1]
+        for span in _BACKTICK_RE.findall(text)
+        if (match := _QUALIFIED_REF_RE.fullmatch(span.strip()))
+    }
+
+
 class TfIdfIndex:
     def __init__(self, files: dict[str, FileInfo]) -> None:
         self.files = files
@@ -164,6 +174,7 @@ class TfIdfIndex:
                         "start_line": sec["start_line"],
                         "end_line": sec["end_line"],
                         "counter": Counter(tokenize(sec["text"])),
+                        "api_refs": _qualified_references(sec["text"]),
                     }
                     for sec in split_markdown_sections(info.lines)
                 ]
@@ -216,7 +227,7 @@ class TfIdfIndex:
         return best
 
     def section_cosine(self, query_vec: dict[str, float], path: str,
-                       ) -> tuple[float, dict | None]:
+                       api_refs: set[str] | None = None) -> tuple[float, dict | None]:
         """Best h2-section cosine for a Markdown file (issue #12).
 
         Whole-file cosine dilutes long docs: a 300-line doc whose
@@ -227,10 +238,11 @@ class TfIdfIndex:
         Returns (best cosine, winning section) or (0.0, None) when the
         file has no h2 sections or no section shares a token with the
         query. Code files have no sections and always return (0.0,
-        None).
+        None). A qualified API reference breaks a lexical score tie.
         """
         best = 0.0
         best_sec: dict | None = None
+        best_key = (-1.0, False)
         for sec in self.sections.get(path, ()):
             sec_vec = self.vector(list(sec["counter"].elements()))
             common = set(query_vec) & set(sec_vec)
@@ -240,9 +252,11 @@ class TfIdfIndex:
             qnorm = math.sqrt(sum(v * v for v in query_vec.values())) or 1.0
             snorm = math.sqrt(sum(v * v for v in sec_vec.values())) or 1.0
             cos = dot / (qnorm * snorm)
-            if cos > best:
+            key = (round(cos, 9), bool(api_refs and api_refs & sec["api_refs"]))
+            if key > best_key:
                 best = cos
                 best_sec = sec
+                best_key = key
         if best_sec is None:
             return 0.0, None
         return best, {
@@ -259,6 +273,7 @@ def score_files(files: dict[str, FileInfo], index: TfIdfIndex,
     query_vec = index.vector(tokenize(req_text))
     scores: dict[str, float] = {}
     seed_set = set(seeds)
+    api_refs = _qualified_references(req_text)
     # Fresh query, fresh section winners: a second call with a
     # different requirement must not keep the previous query's anchors.
     index.section_hits = {}
@@ -269,13 +284,22 @@ def score_files(files: dict[str, FileInfo], index: TfIdfIndex,
         # the answer is section-shaped (issue #12).
         whole = index.cosine(query_vec, path)
         chunk = index.chunk_cosine(query_vec, path)
-        section, sec_hit = index.section_cosine(query_vec, path)
+        section, sec_hit = index.section_cosine(query_vec, path, api_refs)
         sim = max(whole, chunk, section)
-        if sec_hit is not None and section > max(whole, chunk):
+        section_bonus = 0.0
+        # A reference in a diffuse section (e.g. release notes covering
+        # many APIs) should keep its ordinary file/50-line-window score.
+        if sec_hit is not None and api_refs and round(section, 9) == round(sim, 9):
+            lines = info.lines[sec_hit["start_line"] - 1:sec_hit["end_line"]]
+            if api_refs & _qualified_references("\n".join(lines)):
+                # One exact API reference is comparable to a seed definition.
+                # Count it once so repeated examples cannot multiply the boost.
+                section_bonus = 5.0
+        if sec_hit is not None and (section_bonus or section > max(whole, chunk)):
             # The section is what made the file score: carry its
             # anchor so the page can point at the exact section.
             index.section_hits[path] = sec_hit
-        score = sim * 10.0
+        score = sim * 10.0 + section_bonus
         defined = {q.split(".")[-1] for q in info.symbols}
         hits = seed_set & defined
         score += 5.0 * len(hits)

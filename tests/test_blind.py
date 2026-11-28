@@ -1,4 +1,4 @@
-"""Blind-test the MVP against two already-merged click PRs.
+"""Blind-test requirement retrieval against three already-merged Click PRs.
 
 Method (honest version): the input is only the requirement document
 (title + problem statement, changed files hidden); the repo under
@@ -8,9 +8,13 @@ files the real PR actually changed.
 
 Reproduce:
     git clone https://github.com/pallets/click.git /tmp/click
-    cd /tmp/click && git checkout dd149eb3   # pre-#3896
-    git worktree add /tmp/click-pre3878 2247b35e  # pre-#3878
-    CLICK_PRE3896=/tmp/click CLICK_PRE3878=/tmp/click-pre3878 \
+    for case in 3896:dd149eb3 3878:2247b35e 3902:8abb77a8; do
+        dest="/tmp/click-pre${case%:*}"
+        mkdir "$dest"
+        git -C /tmp/click archive "${case#*:}" | tar -xf - -C "$dest"
+    done
+    CLICK_PRE3896=/tmp/click-pre3896 CLICK_PRE3878=/tmp/click-pre3878 \
+    CLICK_PRE3902=/tmp/click-pre3902 \
         python3 tests/test_blind.py
 
 Without those checkouts the test skips (exit 0) instead of failing.
@@ -27,7 +31,7 @@ CASES = [
         "expected": "src/click/testing.py,tests/test_testing.py,"
                     "tests/test_termui.py,docs/testing.md,CHANGES.md",
         "core": "src/click/testing.py",
-        "min_recall": 3,
+        "min_recall": 4,
     },
     {
         "req": "examples/click-req-3878.md",
@@ -36,6 +40,14 @@ CASES = [
                     "docs/testing.md,CHANGES.md",
         "core": "src/click/testing.py",
         "min_recall": 2,
+    },
+    {
+        "req": "examples/click-req-3902.md",
+        "repo_env": "CLICK_PRE3902",
+        "expected": "CHANGES.md,docs/documentation.md,src/click/_textwrap.py,"
+                    "src/click/formatting.py,tests/test_compat.py,tests/test_formatting.py",
+        "core": "src/click/formatting.py",
+        "min_recall": 3,
     },
 ]
 
