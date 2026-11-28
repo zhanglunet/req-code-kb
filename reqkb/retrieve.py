@@ -31,8 +31,10 @@ STOPWORDS = {
 _TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
 _QUALIFIED_REF_RE = re.compile(r"([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)(?:\(\))?")
-_SQL_IDENTIFIER = r'[A-Za-z_]\w*|"(?:[^"]|"")+"|\[(?:[^\]]|\]\])+\]'
-_SQL_REF_RE = re.compile(rf"(?:(?:{_SQL_IDENTIFIER})\s*\.\s*)*({_SQL_IDENTIFIER})(?:\(\))?")
+_SQL_CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)([^\n]*?)(?<!`)\1(?!`)")
+_SQL_IDENTIFIER = r'[A-Za-z_]\w*|"(?:[^"]|"")+"|`(?:[^`]|``)+`|\[(?:[^\]]|\]\])+\]'
+_SQL_IDENTIFIER_RE = re.compile(_SQL_IDENTIFIER)
+_SQL_REF_RE = re.compile(rf"((?:(?:{_SQL_IDENTIFIER})\s*\.\s*)*(?:{_SQL_IDENTIFIER}))(?:\s*\(.*\))?")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
@@ -138,8 +140,8 @@ def extract_seed_identifiers(req_text: str) -> list[str]:
 
 def _sql_seed_identifiers(req_text: str) -> set[str]:
     return {
-        normalize_sql_identifier(match[1])
-        for span in _BACKTICK_RE.findall(req_text)
+        ".".join(normalize_sql_identifier(part) for part in _SQL_IDENTIFIER_RE.findall(match[1]))
+        for _, span in _SQL_CODE_SPAN_RE.findall(req_text)
         if (match := _SQL_REF_RE.fullmatch(span.strip()))
     }
 
@@ -317,6 +319,8 @@ def score_files(files: dict[str, FileInfo], index: TfIdfIndex,
         score = sim * 10.0 + section_bonus
         defined = {q.split(".")[-1] for q in info.symbols}
         symbol_seeds = sql_seeds if info.language == "sql" else seed_set
+        if info.language == "sql":
+            defined.update(info.symbols)
         hits = symbol_seeds & defined
         score += 5.0 * len(hits)
         # The file *uses* a seed symbol (calls it): test files exercise
@@ -394,11 +398,10 @@ def _defined_seeds(info: FileInfo, seeds: set[str]) -> set[str]:
     defines a `cli` object -- so a defined symbol only counts when it
     is at least 6 characters (`ReplSkin`, `invoke`, `preview`).
     """
-    return {
-        s
-        for s in ({q.split(".")[-1] for q in info.symbols} & seeds)
-        if len(s) >= 6
-    }
+    names = {q.rsplit(".", 1)[-1] for q in info.symbols}
+    if info.language == "sql":
+        names.update(info.symbols)
+    return {name for name in names & seeds if len(name) >= 6}
 
 
 def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
@@ -459,6 +462,7 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     seed_nodes = {
         node for node in nodes
         if node[1].rsplit(".", 1)[-1] in symbol_seeds(node[0])
+        or (files[node[0]].language == "sql" and node[1] in sql_seeds)
     }
     callers = reverse_edges(edges)
 

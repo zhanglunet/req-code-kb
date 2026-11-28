@@ -170,6 +170,45 @@ class MultilangTest(unittest.TestCase):
                 self.assertEqual(ctx.file_paths(), expected)
 
     @unittest.skipUnless(HAS_PARSERS, "install requirements-treesitter.txt")
+    def test_sql_seeds_support_calls_and_backtick_quoted_names(self):
+        (self.repo / "billing.sql").write_text(
+            "CREATE FUNCTION billing_total(i INTEGER) RETURNS INTEGER "
+            "LANGUAGE SQL AS $$ SELECT i; $$;\n",
+            encoding="utf-8",
+        )
+        (self.repo / "quoted-schema.sql").write_text(
+            "CREATE TABLE `WidgetRecords` (id INTEGER);\n", encoding="utf-8"
+        )
+        files = parse_repo(str(self.repo), languages=("sql",))
+        for reference, expected in (
+            ("`BILLING_TOTAL(42)`", ["billing.sql"]),
+            ("`billing_total ()`", ["billing.sql"]),
+            ("`` `WidgetRecords` ``", ["quoted-schema.sql"]),
+            ("`` `WIDGETRECORDS` ``", []),
+        ):
+            with self.subTest(reference=reference):
+                ctx = build_context(files, "case", f"Find {reference}.", level="vibe")
+                self.assertEqual(ctx.file_paths(), expected)
+
+    @unittest.skipUnless(HAS_PARSERS, "install requirements-treesitter.txt")
+    def test_sql_seed_preserves_quoted_schema_case(self):
+        (self.repo / "sales-schema.sql").write_text(
+            "CREATE TABLE Sales.WidgetRecords (id INTEGER);\n", encoding="utf-8"
+        )
+        (self.repo / "quoted-sales-schema.sql").write_text(
+            'CREATE TABLE "Sales".WidgetRecords (id INTEGER);\n', encoding="utf-8"
+        )
+        files = parse_repo(str(self.repo), languages=("sql",))
+        for reference, expected in (
+            ("SALES.WidgetRecords", ["sales-schema.sql"]),
+            ('"Sales".WidgetRecords', ["quoted-sales-schema.sql"]),
+            ('"SALES".WidgetRecords', []),
+        ):
+            with self.subTest(reference=reference):
+                ctx = build_context(files, "case", f"Find `{reference}`.", level="vibe")
+                self.assertEqual(ctx.file_paths(), expected)
+
+    @unittest.skipUnless(HAS_PARSERS, "install requirements-treesitter.txt")
     def test_both_pipeline_entry_points_accept_optional_languages(self):
         languages = ("--language", "javascript", "--language", "bash", "--language", "sql")
         common = ("--repo", str(self.repo), "--req", str(self.req), *languages)
