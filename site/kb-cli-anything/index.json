@@ -6,11 +6,11 @@
       "cli-hub/cli_hub/matrix.py",
       "cli-hub/cli_hub/cli.py",
       "firefly-iii/agent-harness/cli_anything/firefly_iii/core/search.py",
-      "eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/install.py",
       "README.md",
       "cli-hub/cli_hub/matrix_skill.py",
       "cli-hub/tests/test_cli_hub.py",
-      "safari/agent-harness/cli_anything/safari/safari_cli.py"
+      "safari/agent-harness/cli_anything/safari/safari_cli.py",
+      "obsidian/agent-harness/cli_anything/obsidian/obsidian_cli.py"
     ],
     "shared_with": [
       "req-overview",

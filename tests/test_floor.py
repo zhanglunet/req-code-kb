@@ -27,6 +27,7 @@ Uses a tiny synthetic repo (no network, no fixtures on disk).
 import os
 import sys
 import tempfile
+from pathlib import Path
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -134,6 +135,38 @@ REQ_TEXT = """# test-floor
 """
 
 
+def test_weak_exact_name() -> None:
+    """A basename match alone must not outrank the implementation."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        for path, text in {
+            "vendor/install.py": "def provision():\n    return None\n",
+            "hub/installer.py": "def resolve_package():\n    return 'registry package'\n",
+        }.items():
+            source = root / path
+            source.parent.mkdir(exist_ok=True)
+            source.write_text(text, encoding="utf-8")
+        query = "Use `install` to `resolve_package` against the registry."
+        files = parse_repo(tmp)
+        context = build_context(files, "install", query)
+        assert context.file_paths()[0] == "hub/installer.py", context.file_paths()
+        explicit_query = query.replace("`install`", "`vendor/install.py`")
+        explicit = build_context(files, "install", explicit_query)
+        assert explicit.file_paths()[0] == "vendor/install.py", explicit.file_paths()
+
+
+def test_explicit_file_survives_stem_dedup() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "rendering.md").write_text("# Rendering output formatting\n", encoding="utf-8")
+        (root / "src").mkdir()
+        (root / "src/rendering.py").write_text("def rendering():\n    return 1\n", encoding="utf-8")
+        files = parse_repo(tmp)
+        for filename in ("rendering.py", "./src/rendering.py"):
+            context = build_context(files, "rendering", f"Update `{filename}` for output formatting.")
+            assert "src/rendering.py" in context.file_paths(), context.file_paths()
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         req_path = os.path.join(tmp, "req.md")
@@ -200,6 +233,8 @@ def main() -> int:
         for msg in failures:
             print("  - " + msg)
         return 1
+    test_weak_exact_name()
+    test_explicit_file_survives_stem_dedup()
     print("保底：全部通过（定义文件进前排、同名只留最浅一份）")
     return 0
 

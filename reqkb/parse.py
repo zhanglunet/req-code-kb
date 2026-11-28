@@ -1,6 +1,7 @@
-"""Parse a Python repo into symbols, calls and imports.
+"""Parse repository source into symbols, calls and imports.
 
-Zero-dependency: only the standard library ``ast`` module.
+Python uses the standard library ``ast`` module. Other languages can
+be enabled explicitly with optional Tree-sitter grammars.
 This is the "extract symbols" step of the Aider repo-map idea
 (extract -> build graph -> PageRank -> cut by budget), reimplemented
 here instead of copying ``aider/repomap.py`` so the MVP stays
@@ -11,25 +12,43 @@ from __future__ import annotations
 
 import ast
 import os
+from collections.abc import Iterable
+
+from .treesitter import EXTENSIONS, load_language, parse_code
 
 SKIP_DIRS = {
     ".git", "__pycache__", ".venv", "venv", "node_modules",
     ".tox", "build", "dist", ".eggs", "egg-info",
 }
 MAX_MD_BYTES = 200_000
+SOURCE_LANGUAGES = {
+    ext: name for name, extensions in EXTENSIONS.items() for ext in extensions
+}
 
 
-def iter_source_files(root: str):
-    """Yield (relative path, absolute path) for .py and .md files."""
+def _source_language(path: str) -> str | None:
+    if path.endswith(".py"):
+        return "python"
+    return SOURCE_LANGUAGES.get(os.path.splitext(path)[1])
+
+
+def iter_source_files(root: str, *, languages: Iterable[str] = ()):
+    """Find Python, Markdown and explicitly enabled source formats."""
+    enabled = {"python", *languages}
     out = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
         for name in sorted(filenames):
-            if name.endswith((".py", ".md")):
-                full = os.path.join(dirpath, name)
-                if name.endswith(".md") and os.path.getsize(full) > MAX_MD_BYTES:
-                    continue
-                out.append((os.path.relpath(full, root), full))
+            language = _source_language(name)
+            markdown = name.endswith(".md")
+            if not markdown and language not in enabled:
+                continue
+            if language == "javascript" and os.path.splitext(name)[0].endswith(".min"):
+                continue
+            full = os.path.join(dirpath, name)
+            if markdown and os.path.getsize(full) > MAX_MD_BYTES:
+                continue
+            out.append((os.path.relpath(full, root), full))
     return sorted(out)
 
 
@@ -96,7 +115,9 @@ class FileInfo:
         self.symbols: dict[str, int] = {}
         self.calls: dict[str, list[tuple[str, int]]] = {}
         self.imports: list[str] = []
-        self.is_code = rel_path.endswith(".py")
+        self.language = _source_language(rel_path)
+        self.is_code = self.language is not None
+        self._source_ranges: dict[str, tuple[int, int]] = {}
 
     @property
     def token_estimate(self) -> int:
@@ -110,19 +131,25 @@ class FileInfo:
         the whole file. Without the cap, one big class alone (e.g.
         ``CliRunner``) eats a quarter of the token budget.
         """
-        try:
-            tree = ast.parse(self.text)
-        except SyntaxError:
-            return 1, 1, ""
-        target = qualname.split(".")
-        node = self._find(tree.body, target)
-        if node is None:
-            return 1, 1, ""
-        start = node.lineno
-        end = getattr(node, "end_lineno", start) or start
+        if self.language == "python":
+            try:
+                tree = ast.parse(self.text)
+            except SyntaxError:
+                return 1, 1, ""
+            node = self._find(tree.body, qualname.split("."))
+            if node is None:
+                return 1, 1, ""
+            start = node.lineno
+            end = getattr(node, "end_lineno", start) or start
+        else:
+            bounds = self._source_ranges.get(qualname)
+            if bounds is None:
+                return 1, 1, ""
+            start, end = bounds
         if end - start + 1 > max_lines:
             text = "\n".join(self.lines[start - 1:start + max_lines - 1])
-            text += "\n# ... (truncated to 60 lines)"
+            marker = {"javascript": "//", "sql": "--"}.get(self.language, "#")
+            text += f"\n{marker} ... (truncated to 60 lines)"
             return start, start + max_lines - 1, text
         return start, end, "\n".join(self.lines[start - 1:end])
 
@@ -143,7 +170,14 @@ def parse_file(rel_path: str, full_path: str) -> FileInfo:
     with open(full_path, encoding="utf-8", errors="replace") as fh:
         text = fh.read()
     info = FileInfo(rel_path, text)
-    if not info.is_code:
+    if info.language is None:
+        return info
+    if info.language != "python":
+        parsed = parse_code(text, info.language)
+        info._source_ranges = parsed.ranges
+        info.symbols = {name: start for name, (start, _) in parsed.ranges.items()}
+        info.calls = parsed.calls
+        info.imports = parsed.imports
         return info
     try:
         tree = ast.parse(text)
@@ -157,9 +191,12 @@ def parse_file(rel_path: str, full_path: str) -> FileInfo:
     return info
 
 
-def parse_repo(root: str) -> dict[str, FileInfo]:
-    """Parse every .py / .md file under root. Returns {rel path: FileInfo}."""
+def parse_repo(root: str, *, languages: Iterable[str] = ()) -> dict[str, FileInfo]:
+    """Parse the selected source files under root, indexed by relative path."""
+    languages = tuple(languages)
+    for name in languages:
+        load_language(name)
     files: dict[str, FileInfo] = {}
-    for rel, full in iter_source_files(root):
+    for rel, full in iter_source_files(root, languages=languages):
         files[rel] = parse_file(rel, full)
     return files

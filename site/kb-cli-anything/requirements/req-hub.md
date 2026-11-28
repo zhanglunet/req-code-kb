@@ -34,7 +34,7 @@ CLI-Hub（`cli-hub`，包名 `cli-anything-hub`）是 CLI-Anything 的包管理�
 - [ ] 知识页说清安装策略选择与已安装状态的持久化
 - [ ] 最小上下文 ≤10 个文件，≤8000 tokens
 
-来源：/home/hatch/workspace/req-code-kb-work/cli-anything-kb/req-hub.md
+来源：本页「需求原文」
 
 ## 相关文件 / 函数
 
@@ -45,13 +45,13 @@ CLI-Hub（`cli-hub`，包名 `cli-anything-hub`）是 CLI-Anything 的包管理�
 | [cli-hub/cli_hub/matrix.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix.py) | 种子 | `resolve_install_scope` (L352), `fetch_matrix_registry` (L65) |
 | [cli-hub/cli_hub/cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/cli.py) | 种子 | `update` (L163), `info` (L260), `search` (L235), `main` (L102), `install` (L130) |
 | [firefly-iii/agent-harness/cli_anything/firefly_iii/core/search.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/firefly-iii/agent-harness/cli_anything/firefly_iii/core/search.py) | 种子 | `search` (L10), `search_transactions` (L19) |
-| [eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/install.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/eth2-quickstart/agent-harness/cli_anything/eth2_quickstart/core/install.py) | 种子 | `_config_updates` (L24), `_validate_choice` (L19), `install_clients` (L43) |
 | [README.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/README.md) | 种子 | — |
 | [cli-hub/cli_hub/matrix_skill.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/cli_hub/matrix_skill.py) | 种子 | `_render_injected_section` (L231), `_find_repo_root` (L45) |
 | [cli-hub/tests/test_cli_hub.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-hub/tests/test_cli_hub.py) | 1 跳邻居 | `_make_preview_session` (L293), `TestInstaller.test_load_installed_empty` (L909), `TestInstaller.test_save_and_load_installed` (L913), `TestRegistry.test_fetch_all_clis_does_not_mutate_registry_entries` (L408), `TestRegistry.test_fetch_registry_from_remote` (L384) |
 | [safari/agent-harness/cli_anything/safari/safari_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/safari/agent-harness/cli_anything/safari/safari_cli.py) | 1 跳邻居 | `cli` (L189), `main` (L621), `_build_tool_command.run` (L249), `get_session` (L81) |
+| [obsidian/agent-harness/cli_anything/obsidian/obsidian_cli.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/obsidian/agent-harness/cli_anything/obsidian/obsidian_cli.py) | 种子 | `search` (L232), `cli` (L118), `main` (L461), `_require_api_key` (L104), `repl` (L404) |
 
-共 10 个文件，约 7450 tokens（预算内），分级：full——完整（跨多文件、核心逻辑）。
+共 10 个文件，约 7466 tokens（预算内），分级：full——完整（跨多文件、核心逻辑）。
 
 ## 调用链
 
@@ -87,6 +87,7 @@ flowchart LR
 - 改 `cli-hub/cli_hub/installer.py` 会波及：`cli-hub/cli_hub/installer.py` 的 `update_cli`、`cli-hub/cli_hub/installer.py` 的 `install_cli`、`cli-hub/cli_hub/installer.py` 的 `_perform_action`
 - 改 `cli-hub/cli_hub/cli.py` 会波及：`sbox/agent-harness/cli_anything/sbox/sbox_cli.py` 的 `repl.echo`、`libreoffice/agent-harness/cli_anything/libreoffice/core/document.py` 的 `create_document`、`sbox/agent-harness/cli_anything/sbox/core/session.py` 的 `Session.load`
 - 改 `firefly-iii/agent-harness/cli_anything/firefly_iii/core/search.py` 会波及：`browser/agent-harness/cli_anything/browser/utils/domshell_backend.py` 的 `_parse_execute_result`、`nslogger/agent-harness/cli_anything/nslogger/core/filter.py` 的 `filter_messages`、`browser/agent-harness/cli_anything/browser/utils/domshell_backend.py` 的 `_extract_lane_id`
+- 改 `obsidian/agent-harness/cli_anything/obsidian/obsidian_cli.py` 会波及：`mubu/agent-harness/cli_anything/mubu/mubu_cli.py` 的 `invoke_probe_command`、`browser/agent-harness/cli_anything/browser/utils/domshell_backend.py` 的 `_parse_execute_result`、`nslogger/agent-harness/cli_anything/nslogger/core/filter.py` 的 `filter_messages`
 
 ## 群消息佐证
 

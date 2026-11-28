@@ -14,6 +14,7 @@ from collections import Counter
 
 from .graph import Node, build_graph, file_scores, pagerank, reverse_edges
 from .parse import FileInfo
+from .treesitter import normalize_sql_identifier
 
 STOPWORDS = {
     "the", "a", "an", "and", "or", "to", "of", "in", "for", "with",
@@ -30,9 +31,14 @@ STOPWORDS = {
 _TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
 _QUALIFIED_REF_RE = re.compile(r"([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)(?:\(\))?")
+_SQL_CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)([^\n]*?)(?<!`)\1(?!`)")
+_SQL_IDENTIFIER = r'[A-Za-z_]\w*|"(?:[^"]|"")+"|`(?:[^`]|``)+`|\[(?:[^\]]|\]\])+\]'
+_SQL_IDENTIFIER_RE = re.compile(_SQL_IDENTIFIER)
+_SQL_REF_RE = re.compile(rf"((?:(?:{_SQL_IDENTIFIER})\s*\.\s*)*(?:{_SQL_IDENTIFIER}))(?:\s*\(.*\))?")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_FILE_NAME_SCORE = 5.0
 
 
 def split_markdown_sections(lines: list[str]) -> list[dict]:
@@ -130,6 +136,14 @@ def extract_seed_identifiers(req_text: str) -> list[str]:
                 if len(part) >= 2 and part not in seeds:
                     seeds.append(part)
     return seeds
+
+
+def _sql_seed_identifiers(req_text: str) -> set[str]:
+    return {
+        ".".join(normalize_sql_identifier(part) for part in _SQL_IDENTIFIER_RE.findall(match[1]))
+        for _, span in _SQL_CODE_SPAN_RE.findall(req_text)
+        if (match := _SQL_REF_RE.fullmatch(span.strip()))
+    }
 
 
 def _qualified_references(text: str) -> set[str]:
@@ -273,6 +287,9 @@ def score_files(files: dict[str, FileInfo], index: TfIdfIndex,
     query_vec = index.vector(tokenize(req_text))
     scores: dict[str, float] = {}
     seed_set = set(seeds)
+    sql_seeds = _sql_seed_identifiers(req_text) if any(
+        info.language == "sql" for info in files.values()
+    ) else set()
     api_refs = _qualified_references(req_text)
     # Fresh query, fresh section winners: a second call with a
     # different requirement must not keep the previous query's anchors.
@@ -301,18 +318,21 @@ def score_files(files: dict[str, FileInfo], index: TfIdfIndex,
             index.section_hits[path] = sec_hit
         score = sim * 10.0 + section_bonus
         defined = {q.split(".")[-1] for q in info.symbols}
-        hits = seed_set & defined
+        symbol_seeds = sql_seeds if info.language == "sql" else seed_set
+        if info.language == "sql":
+            defined.update(info.symbols)
+        hits = symbol_seeds & defined
         score += 5.0 * len(hits)
         # The file *uses* a seed symbol (calls it): test files exercise
         # CliRunner.invoke without defining it, so they need credit too.
         called = {name for calls in info.calls.values() for name, _ in calls}
-        score += 2.0 * len(seed_set & called)
+        score += 2.0 * len(symbol_seeds & called)
         # Backtick identifiers inside the file (docs quote `CliRunner.invoke()`)
         # count as a mention of the seed.
         quoted = set(extract_seed_identifiers(info.text))
         score += 3.0 * len(seed_set & quoted)
-        if path.rsplit(".", 1)[0].rsplit("/", 1)[-1] in seed_set:
-            score += 5.0  # file name itself is named by the requirement
+        if _file_stem(path) in seed_set:
+            score += _FILE_NAME_SCORE
         scores[path] = score
     return scores
 
@@ -378,26 +398,10 @@ def _defined_seeds(info: FileInfo, seeds: set[str]) -> set[str]:
     defines a `cli` object -- so a defined symbol only counts when it
     is at least 6 characters (`ReplSkin`, `invoke`, `preview`).
     """
-    return {
-        s
-        for s in ({q.split(".")[-1] for q in info.symbols} & seeds)
-        if len(s) >= 6
-    }
-
-
-def _is_seed_named(path: str, info: FileInfo, seeds: set[str]) -> bool:
-    """Does this file carry a seed in its name or its definitions?
-
-    A file that *defines* the thing the requirement names (or is named
-    after it) is the thing itself, not a bystander that merely mentions
-    it -- so it gets a floor in the ranking below, and can't lose to a
-    test file that only calls the seed. The 6-character minimum keeps
-    generic seeds (`test`, `SKILL`, `docs`, `cli`) from promoting
-    everything.
-    """
-    if _stem_matches_seed(_file_stem(path), seeds):
-        return True
-    return bool(_defined_seeds(info, seeds))
+    names = {q.rsplit(".", 1)[-1] for q in info.symbols}
+    if info.language == "sql":
+        names.update(info.symbols)
+    return {name for name in names & seeds if len(name) >= 6}
 
 
 def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
@@ -418,6 +422,17 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     max_hops = cfg["max_hops"]
     ctx = Context(req_id, req_text)
     ctx.level = level
+    seed_set = set(ctx.seeds)
+    sql_seeds = _sql_seed_identifiers(req_text) if any(
+        info.language == "sql" for info in files.values()
+    ) else set()
+
+    def symbol_seeds(path: str) -> set[str]:
+        return sql_seeds if files[path].language == "sql" else seed_set
+
+    defining_files = {
+        path for path, info in files.items() if _defined_seeds(info, symbol_seeds(path))
+    }
     index = TfIdfIndex(files)
     scores = score_files(files, index, req_text, ctx.seeds)
     nodes, edges = build_graph(files)
@@ -432,12 +447,10 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     # would flood the list, so the name rule needs a 6-character seed.
     # vibe keeps only seed files (defining + name-matched), no TF-IDF
     # top-5: a one-line fix shouldn't drag in "probably relevant" files.
-    seed_files = {
-        path for path, info in files.items() if _defined_seeds(info, set(ctx.seeds))
-    }
+    seed_files = defining_files.copy()
     seed_files.update(
         path for path in files
-        if _stem_matches_seed(_file_stem(path), set(ctx.seeds))
+        if _stem_matches_seed(_file_stem(path), seed_set)
     )
     if level != "vibe":
         top_tfidf = sorted(scores, key=lambda p: (-scores[p], p))[:5]
@@ -448,7 +461,8 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     # Symbol-level neighbourhoods.
     seed_nodes = {
         node for node in nodes
-        if node[1].split(".")[-1] in set(ctx.seeds)
+        if node[1].rsplit(".", 1)[-1] in symbol_seeds(node[0])
+        or (files[node[0]].language == "sql" and node[1] in sql_seeds)
     }
     callers = reverse_edges(edges)
 
@@ -489,31 +503,39 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     # files that merely call it -- in one real run on CLI-Anything,
     # `repl_skin.py` (defines `ReplSkin`) ranked 388th by score and
     # never made the cut, while its callers did. But strict tiers
-    # misorder the other way: a tier-0 file scoring 5
-    # (`eth2/.../install.py`) sat above `cli.py` scoring 63, the hub's
-    # own entry point. A +20 / +10 bonus keeps the floor's protection
-    # (a tier-0 file scoring 10 still beats a tier-1 file scoring 14,
-    # which is what saves `repl_skin.py`) while letting a large score
-    # gap dominate across tiers.
+    # misorder the other way: a low-scoring exact-name file (such as
+    # `eth2/.../install.py`) can outrank evidence from the hub itself.
+    # Cap that bonus using evidence beyond the filename match.
     # One file per stem in the floor group: a monorepo holds dozens of
     # copies of the same named file (63 repl_skin.py, 7 HARNESS.md);
     # keep the shallowest (the plugin's own, not an app's copy), then
     # the highest score. The copies are dropped from the walk, not
     # demoted: a demoted copy would re-enter right behind on score
     # (safari's HARNESS.md scores 47) and eat the budget again.
-    seed_set = set(ctx.seeds)
+    named_paths = {span.strip().removeprefix("./") for span in _BACKTICK_RE.findall(req_text)}
     floor_set = {
-        p for p in ctx.hops if _is_seed_named(p, files[p], seed_set)
+        p for p in ctx.hops if p in defining_files or _stem_matches_seed(_file_stem(p), seed_set)
     }
-    keep_floor: dict[str, str] = {}
+    keep_floor: dict[tuple[str | None, str], str] = {}
+
+    def name_priority(path: str) -> int:
+        if path in named_paths:
+            return 0
+        if path.rsplit("/", 1)[-1] in named_paths:
+            return 1
+        return 2
+
+    def floor_priority(path: str) -> tuple[int, int, float, str]:
+        return (name_priority(path), path.count("/"), -round(scores[path], 9), path)
+
     for p in floor_set:
-        stem = _file_stem(p)
-        cur = keep_floor.get(stem)
-        if cur is None or (p.count("/"), -scores.get(p, 0.0)) < (
-            cur.count("/"),
-            -scores.get(cur, 0.0),
-        ):
-            keep_floor[stem] = p
+        # Hand-written code in different languages can intentionally
+        # share a stem (for example a deployment script and its SQL).
+        language = files[p].language
+        key = (None if language == "python" else language, _file_stem(p))
+        current = keep_floor.get(key)
+        if current is None or floor_priority(p) < floor_priority(current):
+            keep_floor[key] = p
     keep_floor_set = set(keep_floor.values())
 
     def _floor_tier(path: str) -> int:
@@ -530,7 +552,7 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
         stem = _file_stem(path)
         if stem in seed_set and len(stem) >= 6:
             return 0
-        if _defined_seeds(files[path], seed_set):
+        if path in defining_files:
             return 1
         if _stem_matches_seed(stem, seed_set):
             return 2
@@ -546,17 +568,18 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
     # rehearsal caught it (same file list, different symbols, 7445 vs
     # 7951 tokens). A build must be reproducible byte for byte.
     def _walk_bonus(path: str) -> float:
-        """Ordering bonus by tier. The numbers are set by two real
-        cases, not by feel: tier 0 needs +55 because `repl_skin.py`
-        (raw score 10.7) must beat the generic `README_CN.md` (62.0)
-        that merely mentions the words -- without it the two 1500-token
-        docs eat the budget before the mechanism file is reached.
-        Tier 2 gets only +5, so a prefix match like `search_members.py`
-        (raw 2.2) cannot ride into the top 10 on the name alone.
-        """
+        """Reward exact names in proportion to their independent evidence."""
         if path not in keep_floor_set:
             return 0.0
-        return {0: 55.0, 1: 10.0, 2: 5.0}.get(_floor_tier(path), 0.0)
+        tier = _floor_tier(path)
+        if tier == 0:
+            if name_priority(path) < 2:
+                return 55.0
+            # Keep the full +55 for repl_skin.py (raw 10.7) while giving
+            # install.py (raw 5.06) almost no additional boost.
+            evidence = max(0.0, scores[path] - _FILE_NAME_SCORE)
+            return min(55.0, 10.0 * evidence)
+        return {1: 10.0, 2: 5.0}.get(tier, 0.0)
 
     candidates.sort(
         key=lambda p: (-(scores.get(p, 0.0) + _walk_bonus(p)), p),
@@ -584,6 +607,9 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             if family is not None:
                 seen_families.add(family)
     candidates = deduped
+    sql_query_terms = set(tokenize(req_text)) if any(
+        files[path].language == "sql" for path in candidates
+    ) else set()
     for path in candidates:
         if len(ctx.files) >= max_files:
             break
@@ -592,11 +618,21 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
         info = files[path]
         wanted = {
             q for q in info.symbols
-            if q.split(".")[-1] in set(ctx.seeds)
-            or (path, q) in seed_nodes
+            if (path, q) in seed_nodes
             or any((path, q) in edges.get(n, ()) or (path, q) in callers.get(n, ())
                    for n in seed_nodes)
         }
+        statement_scores: dict[str, int] = {}
+        if info.language == "sql":
+            # Statements such as SELECT have synthetic names. Include
+            # relevant statements even if a named DDL symbol already matched.
+            for q in info.symbols:
+                _, _, snippet = info.snippet(q)
+                matches = len(sql_query_terms.intersection(tokenize(snippet)))
+                if matches:
+                    statement_scores[q] = matches
+            best_statements = sorted(statement_scores, key=lambda q: (-statement_scores[q], q))
+            wanted.update(best_statements[:3])
         if not wanted:
             if info.is_code:
                 # Seed file with no matching symbol (e.g. a test module
@@ -612,7 +648,8 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
         ranked_syms = sorted(
             wanted,
             key=lambda q: (
-                0 if q.split(".")[-1] in set(ctx.seeds) else 1,
+                0 if (path, q) in seed_nodes else 1,
+                -statement_scores.get(q, 0),
                 -round(rank.get((path, q), 0.0), 9),
                 q,
             ),
@@ -653,12 +690,12 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             entry["section"] = sec
         ctx.files.append(entry)
         ctx.total_tokens += tokens
-    _compute_impact(ctx, nodes, edges, rank)
+    _compute_impact(ctx, seed_nodes, callers, rank)
     return ctx
 
 
-def _compute_impact(ctx: Context, nodes: set[Node],
-                    edges: dict[Node, set[Node]],
+def _compute_impact(ctx: Context, seed_nodes: set[Node],
+                    callers: dict[Node, set[Node]],
                     rank: dict[Node, float]) -> None:
     """For each seed file, who calls its seed symbols (blast radius).
 
@@ -666,11 +703,6 @@ def _compute_impact(ctx: Context, nodes: set[Node],
     touches first, so their callers are the first thing that can break.
     Top 3 caller files per seed file, ranked by the caller's PageRank.
     """
-    callers = reverse_edges(edges)
-    seed_nodes = {
-        node for node in nodes
-        if node[1].split(".")[-1] in set(ctx.seeds)
-    }
     per_file: dict[str, dict[str, float]] = {}
     for callee in seed_nodes:
         for caller in callers.get(callee, ()):
