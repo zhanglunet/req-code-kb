@@ -50,6 +50,14 @@ def render_page(ctx: Context, repo_url: str, ref: str,
         syms = ", ".join(
             f"`{s['name']}` (L{s['line']})" for s in entry["symbols"][:6]
         ) or "—"
+        sec = entry.get("section")
+        if sec is not None:
+            # The winning h2 section made this file score: link to the
+            # section start and show its title path + line range
+            # (issue #12).
+            link = github_link(repo_url, ref, path, line=sec["start_line"])
+            syms = (f"§ {sec['title_path']} "
+                    f"(L{sec['start_line']}-L{sec['end_line']})")
         lines.append(f"| [{path}]({link}) | {hop} | {syms} |")
     lines += [
         "",

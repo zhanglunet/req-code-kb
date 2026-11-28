@@ -30,6 +30,63 @@ STOPWORDS = {
 _TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+
+
+def split_markdown_sections(lines: list[str]) -> list[dict]:
+    """Split Markdown lines into h2 sections (issue #12).
+
+    One section per ``## `` heading: the heading line plus everything
+    up to (not including) the next ``## `` heading. Each section
+    carries its title path (h1 + h2, e.g. "Testing Click
+    Applications / Context Settings") and 1-based start/end lines,
+    so a hit can point back at the exact section -- the survey's
+    borrow #1 ("chunks carry title path + start/end line numbers").
+
+    Rules, kept deliberately small:
+    - ``# `` sets the title-path prefix only; it does not start a
+      section. ``### `` and deeper stay inside their h2 section.
+    - Headings inside fenced code blocks (``` / ~~~) are ignored.
+    - Text before the first ``## `` is not a section: the whole-file
+      cosine still covers it, so nothing is ever lost from scoring.
+    - A file with no ``## `` heading has no sections.
+    """
+    h1 = ""
+    sections: list[dict] = []
+    cur: dict | None = None
+    in_fence = False
+    for i, line in enumerate(lines, 1):
+        if _FENCE_RE.match(line):
+            in_fence = not in_fence
+        if not in_fence:
+            m = _HEADING_RE.match(line)
+            if m:
+                level = len(m.group(1))
+                title = m.group(2).strip()
+                if level == 1:
+                    h1 = title
+                    if cur is not None:
+                        cur["text"] += line + "\n"
+                    continue
+                if level == 2 and title:
+                    if cur is not None:
+                        cur["end_line"] = i - 1
+                        sections.append(cur)
+                    cur = {
+                        "heading": title,
+                        "title_path": f"{h1} / {title}" if h1 else title,
+                        "start_line": i,
+                        "end_line": len(lines),
+                        "text": line + "\n",
+                    }
+                    continue
+        if cur is not None:
+            cur["text"] += line + "\n"
+    if cur is not None:
+        cur["end_line"] = len(lines)
+        sections.append(cur)
+    return sections
 
 
 def tokenize(text: str) -> list[str]:
@@ -79,6 +136,14 @@ class TfIdfIndex:
         self.files = files
         self.doc_tokens: dict[str, Counter] = {}
         self.idf: dict[str, float] = {}
+        # h2 sections of Markdown files, precomputed once: each section
+        # carries its title path + line range + token counter, so
+        # scoring a section is a cheap vector lookup, not a re-tokenize.
+        self.sections: dict[str, list[dict]] = {}
+        # Per-query winners, filled by score_files: path -> section
+        # (heading, title_path, start_line, end_line) when the section
+        # is what made the file score.
+        self.section_hits: dict[str, dict] = {}
         doc_count = len(files)
         df: Counter = Counter()
         for path, info in files.items():
@@ -91,6 +156,17 @@ class TfIdfIndex:
             self.doc_tokens[path] = counter
             for token in counter:
                 df[token] += 1
+            if not info.is_code:
+                self.sections[path] = [
+                    {
+                        "heading": sec["heading"],
+                        "title_path": sec["title_path"],
+                        "start_line": sec["start_line"],
+                        "end_line": sec["end_line"],
+                        "counter": Counter(tokenize(sec["text"])),
+                    }
+                    for sec in split_markdown_sections(info.lines)
+                ]
         for token, freq in df.items():
             self.idf[token] = math.log((1 + doc_count) / (1 + freq)) + 1.0
 
@@ -139,6 +215,43 @@ class TfIdfIndex:
             best = max(best, dot / (qnorm * cnorm))
         return best
 
+    def section_cosine(self, query_vec: dict[str, float], path: str,
+                       ) -> tuple[float, dict | None]:
+        """Best h2-section cosine for a Markdown file (issue #12).
+
+        Whole-file cosine dilutes long docs: a 300-line doc whose
+        answer sits in one 30-line section scores like the average of
+        the whole file. The best section is the densest region *with a
+        topic boundary*, so it beats both the whole file and the
+        arbitrary 50-line window when the answer is section-shaped.
+        Returns (best cosine, winning section) or (0.0, None) when the
+        file has no h2 sections or no section shares a token with the
+        query. Code files have no sections and always return (0.0,
+        None).
+        """
+        best = 0.0
+        best_sec: dict | None = None
+        for sec in self.sections.get(path, ()):
+            sec_vec = self.vector(list(sec["counter"].elements()))
+            common = set(query_vec) & set(sec_vec)
+            if not common:
+                continue
+            dot = sum(query_vec[t] * sec_vec[t] for t in common)
+            qnorm = math.sqrt(sum(v * v for v in query_vec.values())) or 1.0
+            snorm = math.sqrt(sum(v * v for v in sec_vec.values())) or 1.0
+            cos = dot / (qnorm * snorm)
+            if cos > best:
+                best = cos
+                best_sec = sec
+        if best_sec is None:
+            return 0.0, None
+        return best, {
+            "heading": best_sec["heading"],
+            "title_path": best_sec["title_path"],
+            "start_line": best_sec["start_line"],
+            "end_line": best_sec["end_line"],
+        }
+
 
 def score_files(files: dict[str, FileInfo], index: TfIdfIndex,
                 req_text: str, seeds: list[str]) -> dict[str, float]:
@@ -146,9 +259,22 @@ def score_files(files: dict[str, FileInfo], index: TfIdfIndex,
     query_vec = index.vector(tokenize(req_text))
     scores: dict[str, float] = {}
     seed_set = set(seeds)
+    # Fresh query, fresh section winners: a second call with a
+    # different requirement must not keep the previous query's anchors.
+    index.section_hits = {}
     for path, info in files.items():
-        sim = max(index.cosine(query_vec, path),
-                  index.chunk_cosine(query_vec, path))
+        # The file score reflects its densest region, not its average:
+        # for Markdown that region is a whole h2 section, which beats
+        # both the whole file and the arbitrary 50-line window when
+        # the answer is section-shaped (issue #12).
+        whole = index.cosine(query_vec, path)
+        chunk = index.chunk_cosine(query_vec, path)
+        section, sec_hit = index.section_cosine(query_vec, path)
+        sim = max(whole, chunk, section)
+        if sec_hit is not None and section > max(whole, chunk):
+            # The section is what made the file score: carry its
+            # anchor so the page can point at the exact section.
+            index.section_hits[path] = sec_hit
         score = sim * 10.0
         defined = {q.split(".")[-1] for q in info.symbols}
         hits = seed_set & defined
@@ -492,10 +618,16 @@ def build_context(files: dict[str, FileInfo], req_id: str, req_text: str,
             continue
         if not symbols and tokens == 0:
             continue  # contributes nothing to the context; skip it
-        ctx.files.append({
+        entry = {
             "path": path, "score": round(scores.get(path, 0.0), 3),
             "hop": ctx.hops[path], "symbols": symbols, "tokens": tokens,
-        })
+        }
+        sec = index.section_hits.get(path)
+        if sec is not None:
+            # The winning h2 section: the page points at it, not at
+            # the top of the file (issue #12).
+            entry["section"] = sec
+        ctx.files.append(entry)
         ctx.total_tokens += tokens
     _compute_impact(ctx, nodes, edges, rank)
     return ctx

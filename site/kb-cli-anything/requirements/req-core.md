@@ -40,7 +40,7 @@ CLI-Anything 的核心不是“写了很多 CLI”，而是“能批量生出 CL
 | --- | --- | --- |
 | [cli-anything-plugin/HARNESS.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/HARNESS.md) | 种子 | — |
 | [docs/PREVIEW_PROTOCOL.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/docs/PREVIEW_PROTOCOL.md) | 种子 | — |
-| [cli-anything-plugin/commands/validate.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/commands/validate.md) | 种子 | — |
+| [cli-anything-plugin/commands/validate.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/commands/validate.md#L25) | 种子 | § cli-anything:validate Command / What This Command Validates (L25-L93) |
 | [cli-anything-plugin/commands/refine.md](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/commands/refine.md) | 种子 | — |
 | [cli-anything-plugin/skill_generator.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/skill_generator.py) | 种子 | `extract_cli_metadata` (L116), `_format_display_name` (L21), `extract_system_package` (L216) |
 | [cli-anything-plugin/repl_skin.py](https://github.com/HKUDS/CLI-Anything/blob/34f519533bc175d2fe287ab8316b0dd99bb9cc43/cli-anything-plugin/repl_skin.py) | 种子 | `ReplSkin` (L106), `ReplSkin.prompt` (L247) |

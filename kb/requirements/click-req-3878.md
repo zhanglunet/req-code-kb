@@ -36,7 +36,7 @@
 | 文件 | 关联 | 命中符号 |
 | --- | --- | --- |
 | [src/click/testing.py](https://github.com/pallets/click/blob/08b803c/src/click/testing.py) | 种子 | `CliRunner` (L341), `Result.stdout` (L319) |
-| [CHANGES.md](https://github.com/pallets/click/blob/08b803c/CHANGES.md) | 种子 | — |
+| [CHANGES.md](https://github.com/pallets/click/blob/08b803c/CHANGES.md#L1) | 种子 | § Version 8.6.0 (L1-L31) |
 | [docs/testing.md](https://github.com/pallets/click/blob/08b803c/docs/testing.md) | 种子 | — |
 | [tests/test_termui.py](https://github.com/pallets/click/blob/08b803c/tests/test_termui.py) | 种子 | `test_echo_via_pager_streams_each_write.RecordingStream.write` (L937), `FakeClock.time` (L33), `_create_progress` (L37) |
 | [src/click/_termui_impl.py](https://github.com/pallets/click/blob/08b803c/src/click/_termui_impl.py) | 种子 | `ProgressBar.update` (L318), `_PagerWriter.write` (L401), `ProgressBar.render_progress` (L250) |
