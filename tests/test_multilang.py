@@ -151,6 +151,25 @@ class MultilangTest(unittest.TestCase):
         self.assertEqual(edges["case.sql", "statement_5_1"], set())
 
     @unittest.skipUnless(HAS_PARSERS, "install requirements-treesitter.txt")
+    def test_sql_requirement_seeds_follow_identifier_case(self):
+        (self.repo / "plain-schema.sql").write_text(
+            "CREATE TABLE WidgetRecords (id INTEGER);\n", encoding="utf-8"
+        )
+        (self.repo / "quoted-schema.sql").write_text(
+            'CREATE TABLE "WidgetRecords" (id INTEGER);\n', encoding="utf-8"
+        )
+        files = parse_repo(str(self.repo), languages=("sql",))
+        for spelling, expected in (
+            ("WidgetRecords", ["plain-schema.sql"]),
+            ("WIDGETRECORDS", ["plain-schema.sql"]),
+            ('"WidgetRecords"', ["quoted-schema.sql"]),
+            ('"WIDGETRECORDS"', []),
+        ):
+            with self.subTest(spelling=spelling):
+                ctx = build_context(files, "case", f"Find `{spelling}`.", level="vibe")
+                self.assertEqual(ctx.file_paths(), expected)
+
+    @unittest.skipUnless(HAS_PARSERS, "install requirements-treesitter.txt")
     def test_both_pipeline_entry_points_accept_optional_languages(self):
         languages = ("--language", "javascript", "--language", "bash", "--language", "sql")
         common = ("--repo", str(self.repo), "--req", str(self.req), *languages)

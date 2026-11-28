@@ -126,8 +126,8 @@ _SQL_DEFINITIONS = {"create_table", "create_view", "create_materialized_view",
                     "create_function", "create_procedure"}
 
 
-def _sql_identifier(node, source: bytes) -> str:
-    text = _text(node, source)
+def normalize_sql_identifier(text: str) -> str:
+    """Fold unquoted SQL names while preserving quoted identifier case."""
     if len(text) > 1:
         closing = {'"': '"', "`": "`", "[": "]"}.get(text[0])
         if closing is not None and text[-1] == closing:
@@ -137,7 +137,7 @@ def _sql_identifier(node, source: bytes) -> str:
 
 def _sql_object(node, source: bytes) -> str:
     return ".".join(
-        _sql_identifier(child, source)
+        normalize_sql_identifier(_text(child, source))
         for field in ("schema", "name")
         if (child := node.child_by_field_name(field)) is not None
     )
