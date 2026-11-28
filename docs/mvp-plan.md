@@ -147,6 +147,20 @@ TF-IDF 信号被整篇稀释，50 行窗口取最密一段已有所缓解，但�
 这两个词，分数天花板在词汇本身不在切分；六张沉淀页重建后文件
 清单与 token 总数不变，只多了小节锚点。
 
+**#12 后续验证。** 当 Markdown 的最高分小节至少和整篇及行窗口一样相关，
+而且引用了需求点名的完整 API（如 `CliRunner.invoke`），该小节会获得
+一次加分。#3896 的 `Context Settings`（L90–L123）进入前 10，召回由
+3/5 提升到 4/5，保住原有三个命中，约 7181 tokens。用两条 Click
+盲测和四个 CLI-Anything 知识页的固定源版本重建对照，只有 #3896
+的文件清单发生变化，`docs/testing.md` 替换了 `src/click/decorators.py`。
+
+新增 [Click #3902](https://github.com/pallets/click/pull/3902) 盲测，
+覆盖帮助文本排版。输入来自 [原始需求 #3362](https://github.com/pallets/click/issues/3362)，
+在合并前提交 `8abb77a8` 上构建，命中 4/6，约 5689 tokens，
+`src/click/formatting.py` 和 `src/click/_textwrap.py` 都在清单中。
+用真实合并提交 `a46a95c7` 回流，记录了 `docs/documentation.md` 和
+`tests/test_compat.py` 两处遗漏，原始预测清单保留。
+
 2026-11-24 晚补记：中文分词修复后重测，召回不变（#3896 3/5、
 #3878 2/4，核心文件在内），tokens 变为 6461 / 4930（需求文档含
 中文词元，分数有变；与 §11 的改动无关——full 分级检索逻辑未动，

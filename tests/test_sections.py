@@ -33,6 +33,7 @@ sys.path.insert(0, ROOT)
 from reqkb.parse import parse_repo  # noqa: E402
 from reqkb.retrieve import (  # noqa: E402
     TfIdfIndex,
+    score_files,
     build_context,
     extract_seed_identifiers,
     split_markdown_sections,
@@ -194,6 +195,40 @@ def main() -> int:
         if "section" in by_path.get("docs/notes.md", {}):
             failures.append("a section-less doc entry must not carry a "
                             "section")
+
+    # The exact qualified reference is stronger than its parts quoted
+    # independently, even when all of the existing token signals tie.
+    with tempfile.TemporaryDirectory() as tmp:
+        docs = {
+            "a-split.md": "`WidgetRunner` `invoke`",
+            "b-qualified.md": "`WidgetRunner.invoke`",
+            "c-other.md": "`WidgetRunner.preview` `invoke`",
+        }
+        for name, reference in docs.items():
+            with open(os.path.join(tmp, name), "w", encoding="utf-8") as fh:
+                fh.write(f"# Guide\n\n## Options\n\n{reference} accepts keyword arguments.\n")
+        for name, sections in {
+            "d-qualified-last.md": [("Options 1", docs["a-split.md"]),
+                                    ("Options 2", docs["b-qualified.md"])],
+            "e-qualified-first.md": [("Options 2", docs["b-qualified.md"]),
+                                     ("Options 1", docs["a-split.md"])],
+        }.items():
+            with open(os.path.join(tmp, name), "w", encoding="utf-8") as fh:
+                for heading, reference in sections:
+                    fh.write(f"## {heading}\n\n{reference}\n\n")
+        files = parse_repo(tmp)
+        index = TfIdfIndex(files)
+        question = "给 `WidgetRunner.invoke()` 加 `context_settings`。"
+        scores = score_files(files, index, question,
+                             extract_seed_identifiers(question))
+        if not scores["b-qualified.md"] > scores["a-split.md"]:
+            failures.append("an exact qualified API reference must outrank "
+                            "independently quoted name parts")
+        if not scores["b-qualified.md"] > scores["c-other.md"]:
+            failures.append("a different method must not get the exact API boost")
+        for name in ("d-qualified-last.md", "e-qualified-first.md"):
+            if index.section_hits.get(name, {}).get("heading") != "Options 2":
+                failures.append(f"{name} must anchor to the exact API section")
 
     if failures:
         print("FAIL:")
